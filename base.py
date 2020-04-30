@@ -61,6 +61,9 @@ class Ui_MainWindow(object):
         self.fileReadButton = QtWidgets.QPushButton(self.centralwidget)
         self.fileReadButton.setGeometry(QtCore.QRect(740, 50, 140, 35))
         self.fileReadButton.setObjectName("fileReadButton")
+        self.colorPickerToolButton = QtWidgets.QToolButton(self.centralwidget)
+        self.colorPickerToolButton.setGeometry(QtCore.QRect(810, 530, 71, 22))
+        self.colorPickerToolButton.setObjectName("colorPickerToolButton")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 889, 22))
@@ -80,4 +83,5 @@ class Ui_MainWindow(object):
         self.pushButton.setText(_translate("MainWindow", "PushButton"))
         self.savePictureButton.setText(_translate("MainWindow", "キャンバスを保存"))
         self.fileReadButton.setText(_translate("MainWindow", "ファイルを読込む"))
+        self.colorPickerToolButton.setText(_translate("MainWindow", "カラーピッカー"))
 

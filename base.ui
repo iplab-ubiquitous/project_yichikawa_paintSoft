@@ -165,6 +165,19 @@
      <string>ファイルを読込む</string>
     </property>
    </widget>
+   <widget class="QToolButton" name="colorPickerToolButton">
+    <property name="geometry">
+     <rect>
+      <x>810</x>
+      <y>530</y>
+      <width>71</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>カラーピッカー</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">

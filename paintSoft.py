@@ -1,18 +1,29 @@
 import sys, math, serial
 from PyQt5.QtCore import Qt, QPoint, QPointF, QRect, QSize, QMetaObject, QCoreApplication, QAbstractTableModel, \
-    QModelIndex, QTimer, QItemSelectionModel
+    QModelIndex, QTimer
 from PyQt5.QtGui import QPainter, QPainterPath, QPolygon, QMouseEvent, QImage, qRgb, QPalette, QColor, QPaintEvent, \
-    QPixmap, QScreen
+    QPixmap
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QSlider, QTableView, QMenuBar, QStatusBar, \
-    QPushButton, QTextEdit, QAbstractItemView, QFileDialog, QLabel
+    QPushButton, QTextEdit, QAbstractItemView, QFileDialog, QLabel, QToolButton, QColorDialog
 import PyQt5.sip
 import numpy as np
+from enum import Enum
+
 
 NUM_OF_SENSORS = 10
 WAITING_FRAMES = 100
 ALPHA_EMA = 0.7
 
+KNEE_POSX_MINIMUM = 2
+KNEE_POSX_CENTER  = 4
+KNEE_POSX_MAXIMUM = 6
+KNEE_POSY_MINIMUM = 46
+KNEE_POSY_CENTER  = 48
+KNEE_POSY_MAXIMUM = 53
 
+class KneeControlMode(Enum):
+    NONE = 0
+    COLOR_PICKER = 1
 
 class KneePosition():
 
@@ -41,6 +52,12 @@ class KneePosition():
             distances = self.distanceSensorArray.readline().strip().decode("utf-8").split(',')
 
         return distances
+
+    def getMappedValue(self, val, in_min, in_max, out_min, out_max):
+        return (val - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
+    def getMappedPositions8bit(self, x, y):
+        return self.getMappedValue(x, 2, 6, 0, 255), self.getMappedValue(y, 48, 53, 0, 255)
 
 
     def getPosition(self):
@@ -145,32 +162,32 @@ class RoundedPolygon(QPolygon):
 
         return mPath
 
-class LayerTableModel(QAbstractTableModel):
+class CanvasNameTableModel(QAbstractTableModel):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.layersName: List[str] = ["canvas[0]"]
+        self.canvasName: List[str] = ["canvas[0]"]
 
     def rowCount(self, parent=None):
-        return len(self.layersName)
+        return len(self.canvasName)
 
     def columnCount(self, parent=None):
         return 1
 
     def data(self, index: QModelIndex, role: int):
         if role == Qt.DisplayRole:
-            return self.layersName[index.row()]
+            return self.canvasName[index.row()]
 
     def headerData(self, section: int, orientation: int, role: int):
         if role == Qt.DisplayRole & orientation == Qt.Horizontal:
-            return "LayerName"
+            return "CanvasName"
         else:
             return ""
 
-    def addLayer(self, layerName: str):
-        self.layersName.append(layerName)
+    def addCanvas(self, canvasName: str):
+        self.canvasName.append(canvasName)
 
-    def deleteLastLayer(self):
-        self.layersName.pop()
+    def deleteLastCanvas(self):
+        self.canvasName.pop()
 
 class Canvas(QWidget):
     def __init__(self, parent=None):
@@ -303,7 +320,9 @@ class MainWindow(QMainWindow):
         self.setupUi()
         self.show()
 
-        self.activeLayer = 0                # 操作レイヤの制御
+        self.activeCanvas = 0                # 操作レイヤの制御
+        self.isEnabledKneeControl = False
+        self.penColor = QColorDialog()
 
         try:
             usbSerialCommunication =  serial.Serial('/dev/cu.usbmodem141201', 460800)
@@ -312,6 +331,7 @@ class MainWindow(QMainWindow):
             self.timer = QTimer(self)
             self.timer.timeout.connect(self.getKneePosition)
             self.timer.start(5)  #200fps以下
+            self.isEnabledKneeControl = True
 
         except serial.serialutil.SerialException as e:
             self.statusbar.showMessage("膝操作が無効：シリアル通信が確保できていません。原因：" + str(e))
@@ -350,32 +370,37 @@ class MainWindow(QMainWindow):
         self.horizontalSlider_3.setObjectName("horizontalSlider_3")
         self.verticalLayout.addWidget(self.horizontalSlider_3)
 
-        self.layersTableView = QTableView(self.centralwidget)
-        self.layersTableView.setGeometry(QRect(600, 170, 290, 150))
-        self.layersTableView.setObjectName("layersTableView")
-        self.layersTableView.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.layersTableView.horizontalHeader().setDefaultSectionSize(290)
-        self.layersTableView.clicked.connect(self.switchLayer)
+        self.canvasTableView = QTableView(self.centralwidget)
+        self.canvasTableView.setGeometry(QRect(600, 170, 290, 150))
+        self.canvasTableView.setObjectName("canvasTableView")
+        self.canvasTableView.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.canvasTableView.horizontalHeader().setDefaultSectionSize(290)
+        self.canvasTableView.clicked.connect(self.switchCanvas)
 
 
-        self.addLayerButton = QPushButton(self.centralwidget)
-        self.addLayerButton.setGeometry(QRect(760, 330, 120, 25))
-        self.addLayerButton.setObjectName("addLayerButton")
-        self.addLayerButton.clicked.connect(self.addLayer)
+        self.addCanvasButton = QPushButton(self.centralwidget)
+        self.addCanvasButton.setGeometry(QRect(760, 330, 120, 25))
+        self.addCanvasButton.setObjectName("addCanvasButton")
+        self.addCanvasButton.clicked.connect(self.addCanvas)
 
-        self.deleteLayerButton = QPushButton(self.centralwidget)
-        self.deleteLayerButton.setGeometry(QRect(760, 360, 120, 25))
-        self.deleteLayerButton.setObjectName("deleteLayerButton")
-        self.deleteLayerButton.clicked.connect(self.deleteLayer)
+        self.deleteCanvasButton = QPushButton(self.centralwidget)
+        self.deleteCanvasButton.setGeometry(QRect(760, 360, 120, 25))
+        self.deleteCanvasButton.setObjectName("deleteCanvasButton")
+        self.deleteCanvasButton.clicked.connect(self.deleteCanvas)
 
-        self.addLayerNameTextEdit = QTextEdit(self.centralwidget)
-        self.addLayerNameTextEdit.setGeometry(QRect(610, 345, 140, 25))
-        self.addLayerNameTextEdit.setObjectName("addLayerNameTextEdit")
+        self.addCanvasNameTextEdit = QTextEdit(self.centralwidget)
+        self.addCanvasNameTextEdit.setGeometry(QRect(610, 345, 140, 25))
+        self.addCanvasNameTextEdit.setObjectName("addCanvasNameTextEdit")
 
         self.savePictureButton = QPushButton(self.centralwidget)
         self.savePictureButton.setGeometry(QRect(740, 80, 140, 35))
         self.savePictureButton.setObjectName("savePictureButton")
         self.savePictureButton.clicked.connect(self.savePicture)
+
+        self.colorPickerToolButton = QToolButton(self.centralwidget)
+        self.colorPickerToolButton.setGeometry(QRect(810, 530, 71, 22))
+        self.colorPickerToolButton.setObjectName("colorPickerToolButton")
+        self.colorPickerToolButton.clicked.connect(self.pickColor)
 
         # self.fileReadButton = QPushButton(self.centralwidget)
         # self.fileReadButton.setGeometry(QRect(740, 50, 140, 35))
@@ -390,12 +415,12 @@ class MainWindow(QMainWindow):
         self.canvas = []
         self.canvas.append(Canvas(self.centralwidget))
         self.canvas[0].setGeometry(QRect(0, 0, 600, 600))
-        self.canvas[0].setObjectName("layer0")
+        self.canvas[0].setObjectName("canvas0")
         palette = self.canvas[0].palette()
         palette.setColor(QPalette.Background, QColor(255,255,255,255))
         self.canvas[0].setPalette(palette)
         self.canvas[0].setAutoFillBackground(True)
-        self.activeLayer = 0
+        self.activeCanvas = 0
 
         self.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(self)
@@ -406,21 +431,21 @@ class MainWindow(QMainWindow):
         self.statusbar.setObjectName("statusbar")
         self.setStatusBar(self.statusbar)
 
-        self.layersTableModel = LayerTableModel()
-        self.layersTableView.setModel(self.layersTableModel)
-        self.layersTableView.setCurrentIndex(self.layersTableModel.index(self.activeLayer, 0))
+        self.canvasNameTableModel = CanvasNameTableModel()
+        self.canvasTableView.setModel(self.canvasNameTableModel)
+        self.canvasTableView.setCurrentIndex(self.canvasNameTableModel.index(self.activeCanvas, 0))
 
-        self.layersTableModel.layoutChanged.emit()
+        self.canvasNameTableModel.layoutChanged.emit()
 
         _translate = QCoreApplication.translate
         self.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.addLayerButton.setText(_translate("MainWindow", "レイヤを追加"))
-        self.deleteLayerButton.setText(_translate("MainWindow", "レイヤを削除"))
+        self.addCanvasButton.setText(_translate("MainWindow", "レイヤを追加"))
+        self.deleteCanvasButton.setText(_translate("MainWindow", "レイヤを削除"))
         self.savePictureButton.setText(_translate("MainWindow", "内容を保存(SS)"))
         # self.fileReadButton.setText(_translate("MainWindow", "ファイルを読込む"))
         QMetaObject.connectSlotsByName(self)
 
-    def addLayer(self):
+    def addCanvas(self):
         newCanvas = Canvas(self.centralwidget)
         newCanvas.setGeometry(QRect(0, 0, 600, 600))
         newCanvas.setObjectName("canvas")
@@ -430,60 +455,60 @@ class MainWindow(QMainWindow):
         newCanvas.setAutoFillBackground(True)
 
         self.canvas.append(newCanvas)
-        self.activeLayer = len(self.canvas) - 1
+        self.activeCanvas = len(self.canvas) - 1
 
 
-        layerName = self.addLayerNameTextEdit.toPlainText()
-        if layerName == "":
-            layerName = 'canvas[' +  str(self.activeLayer) + ']'
-        self.layersTableModel.addLayer(layerName)
-        self.layersTableView.setCurrentIndex(self.layersTableModel.index(self.activeLayer, 0))
-        self.layersTableModel.layoutChanged.emit()
+        canvasName = self.addCanvasNameTextEdit.toPlainText()
+        if canvasName == "":
+            canvasName = 'canvas[' +  str(self.activeCanvas) + ']'
+        self.canvasNameTableModel.addCanvas(canvasName)
+        self.canvasTableView.setCurrentIndex(self.canvasNameTableModel.index(self.activeCanvas, 0))
+        self.canvasNameTableModel.layoutChanged.emit()
 
 
         # 使用するレイヤだけ使用可能にする
-        for layer in self.canvas:
-            layer.setEnabled(False)
-        self.canvas[self.activeLayer].setEnabled(True)
+        for canvas in self.canvas:
+            canvas.setEnabled(False)
+        self.canvas[self.activeCanvas].setEnabled(True)
 
-    def deleteLayer(self):
+    def deleteCanvas(self):
         if len(self.canvas) > 1:
-            if self.activeLayer == len(self.canvas) - 1:
-                self.activeLayer -= 1
+            if self.activeCanvas == len(self.canvas) - 1:
+                self.activeCanvas -= 1
 
             deletedCanvas = self.canvas.pop()
-            self.layersTableModel.deleteLastLayer()
-            self.layersTableView.setCurrentIndex(self.layersTableModel.index(self.activeLayer, 0))
-            self.layersTableModel.layoutChanged.emit()
+            self.canvasNameTableModel.deleteLastCanvas()
+            self.canvasTableView.setCurrentIndex(self.canvasNameTableModel.index(self.activeCanvas, 0))
+            self.canvasNameTableModel.layoutChanged.emit()
 
             for i in range(len(deletedCanvas.existingPaths)):
                 deletedCanvas.existingPaths.pop()
 
             deletedCanvas.hide()
             # 使用するレイヤだけ使用可能にする
-            for layer in self.canvas:
-                layer.setEnabled(False)
-            self.canvas[self.activeLayer].setEnabled(True)
+            for canvas in self.canvas:
+                canvas.setEnabled(False)
+            self.canvas[self.activeCanvas].setEnabled(True)
 
 
-    def switchLayer(self, indexClicked: QModelIndex):
-        self.activeLayer = indexClicked.row()
+    def switchCanvas(self, indexClicked: QModelIndex):
+        self.activeCanvas = indexClicked.row()
 
-        self.layersTableView.setCurrentIndex(self.layersTableModel.index(self.activeLayer, 0))
+        self.canvasTableView.setCurrentIndex(self.canvasNameTableModel.index(self.activeCanvas, 0))
         # 使用するレイヤだけ使用可能にする
-        for layer in self.canvas:
-            layer.setEnabled(False)
-        self.canvas[self.activeLayer].setEnabled(True)
+        for canvas in self.canvas:
+            canvas.setEnabled(False)
+        self.canvas[self.activeCanvas].setEnabled(True)
 
         #選択したレイヤと下のレイヤは見えるようにする
-        for i in range(0, self.activeLayer+1):
+        for i in range(0, self.activeCanvas+1):
             self.canvas[i].setVisible(True)
 
         # 選択したレイヤより上のレイヤは見えないようにする
-        for i in range(self.activeLayer+1, len(self.canvas)):
+        for i in range(self.activeCanvas+1, len(self.canvas)):
             self.canvas[i].setVisible(False)
 
-        self.statusbar.showMessage("レイヤ「" + str(self.layersTableModel.layersName[self.activeLayer]) + "」へ切り替わりました")
+        self.statusbar.showMessage("レイヤ「" + str(self.canvasNameTableModel.canvasName[self.activeCanvas]) + "」へ切り替わりました")
 
 
 
@@ -498,24 +523,32 @@ class MainWindow(QMainWindow):
         print(fileName)
 
         if fileName:
-            self.canvas[self.activeLayer].setPictureFileName(fileName)
+            self.canvas[self.activeCanvas].setPictureFileName(fileName)
         else:
             self.statusbar.showMessage("画像の読み込みに失敗しました")
 
-
-
+    def pickColor(self):
+        pickedColor = self.penColor.getColor(Qt.black)
+        self.statusbar.showMessage(str(pickedColor))
 
 
     def keyPressEvent(self, keyEvent):
         # print(keyEvent.key())
         if keyEvent.key() == Qt.Key_Return:
-            self.canvas[self.activeLayer].fixPath()
+            self.canvas[self.activeCanvas].fixPath()
 
         if keyEvent.key() == Qt.Key_Backspace:
-            self.canvas[self.activeLayer].deleteLastPath()
+            self.canvas[self.activeCanvas].deleteLastPath()
+
+
 
     def getKneePosition(self):
         x, y = self.kneePosition.getPosition()
+        # x: 2  <-> 6
+        # y: 46 <-> 48 <-> 53
+        x, y = self.kneePosition.getMappedPositions8bit(x, y)
+
+        self.penColor.setCurrentColor(QColor(x, y ,0))
 
         statusStr = "x: " + str(x) + "y: " + str(y)
         self.statusbar.showMessage(statusStr)
