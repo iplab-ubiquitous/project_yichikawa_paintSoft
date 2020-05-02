@@ -14,12 +14,7 @@ NUM_OF_SENSORS = 10
 WAITING_FRAMES = 100
 ALPHA_EMA = 0.7
 
-KNEE_POSX_MINIMUM = 2
-KNEE_POSX_CENTER  = 4
-KNEE_POSX_MAXIMUM = 6
-KNEE_POSY_MINIMUM = 46
-KNEE_POSY_CENTER  = 48
-KNEE_POSY_MAXIMUM = 53
+
 
 class KneeControlMode(Enum):
     NONE = 0
@@ -36,8 +31,14 @@ class KneePosition():
         #（仮の）膝の座標値
         self.oldX = 0
         self.oldY = 0
-        # self.xs = 0
-        # self.ys = 0
+
+        # キャリブレーションの記録
+        self.kneePosXMinumum = 2
+        self.kneePosXCenter = 4
+        self.kneePosXMaximum = 6
+        self.kneePosYMinimum = 46
+        self.kneePosYCenter = 48
+        self.neePosYMaximum = 53
 
         #膝検出・位置計算用
         self.sensor_val = np.zeros(NUM_OF_SENSORS, dtype=np.float)
@@ -45,6 +46,16 @@ class KneePosition():
         self.val = np.zeros((WAITING_FRAMES, NUM_OF_SENSORS), dtype=np.float)
         self.leg_flag = False
         self.sensor_flt = np.zeros((WAITING_FRAMES,NUM_OF_SENSORS),dtype=np.float)
+
+    def setCalibrateValues(self, calibratedCenterX, calibratedCenterY):
+        self.kneePosXCenter  = calibratedCenterX
+        self.kneePosXMaximum = calibratedCenterX + 2
+        self.kneePosXMinumum = calibratedCenterX - 2
+
+        self.kneePosYCenter  = calibratedCenterY
+        self.kneePosYMaximum = calibratedCenterY + 4
+        self.kneePosYMinumum = calibratedCenterY - 2
+
 
     def getDistance(self):
         distances = float(0)
@@ -57,7 +68,20 @@ class KneePosition():
         return (val - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
     def getMappedPositions8bit(self, x, y):
-        return self.getMappedValue(x, 2, 6, 0, 255), self.getMappedValue(y, 48, 53, 0, 255)
+        x = self.getMappedValue(x, self.kneePosXMinumum, self.kneePosXMaximum, 0, 255)
+        if x > 255: x = 255
+        elif x < 0: x = 0
+
+        if y < self.kneePosYCenter:
+            y = self.getMappedValue(y, self.kneePosYMinimum, self.kneePosYCenter, 0, 127)
+        else:
+            y = self.getMappedValue(y, self.kneePosYCenter, self.kneePosYMaximum, 127, 255)
+
+
+        if y > 255: y = 255
+        elif y < 0: y = 0
+
+        return x, y
 
 
     def getPosition(self):
@@ -327,6 +351,9 @@ class MainWindow(QMainWindow):
         try:
             usbSerialCommunication =  serial.Serial('/dev/cu.usbmodem141201', 460800)
             self.kneePosition = KneePosition(usbSerialCommunication)  # 膝の座標を取得するためのクラス
+            print("Success Establish Connection.")
+
+            self.calibrateKneePosition()
             # 定期的に膝の座標を取得する
             self.timer = QTimer(self)
             self.timer.timeout.connect(self.getKneePosition)
@@ -511,7 +538,6 @@ class MainWindow(QMainWindow):
         self.statusbar.showMessage("レイヤ「" + str(self.canvasNameTableModel.canvasName[self.activeCanvas]) + "」へ切り替わりました")
 
 
-
     def savePicture(self):
         picture = QPixmap()
         picture = self.centralwidget.grab(QRect(0,0,600,600))
@@ -541,17 +567,34 @@ class MainWindow(QMainWindow):
             self.canvas[self.activeCanvas].deleteLastPath()
 
 
+    def calibrateKneePosition(self):
+        print("Start Calibration")
+        frames = 20
+
+        calibrationX = np.zeros(frames, dtype=np.float)
+        calibrationY = np.zeros(frames, dtype=np.float)
+
+        for i in range(frames):
+            print("frames: {}".format(i))
+            x, y = self.kneePosition.getPosition()
+            calibrationX[i] = x
+            calibrationY[i] = y
+
+        calibrateValueX = np.average(calibrationX)
+        calibrateValueY = np.average(calibrationY)
+
+        print("Success Calibration with x: {}, y: {} .".format(calibrateValueX, calibrateValueY))
+        self.kneePosition.setCalibrateValues(calibrateValueX, calibrateValueY)
 
     def getKneePosition(self):
         x, y = self.kneePosition.getPosition()
         # x: 2  <-> 6
         # y: 46 <-> 48 <-> 53
         x, y = self.kneePosition.getMappedPositions8bit(x, y)
-
-        self.penColor.setCurrentColor(QColor(x, y ,0))
-
         statusStr = "x: " + str(x) + "y: " + str(y)
         self.statusbar.showMessage(statusStr)
+
+        self.penColor.setCurrentColor(QColor(x, y ,0))
 
 
 if __name__ == '__main__':
