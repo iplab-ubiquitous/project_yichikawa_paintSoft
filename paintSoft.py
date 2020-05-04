@@ -1,6 +1,6 @@
 import sys, math, serial
 from PyQt5.QtCore import Qt, QPoint, QPointF, QRect, QSize, QMetaObject, QCoreApplication, QAbstractTableModel, \
-    QModelIndex, QTimer
+    QModelIndex, QTimer, QThread, QObject, pyqtSignal
 from PyQt5.QtGui import QPainter, QPainterPath, QPolygon, QMouseEvent, QImage, qRgb, QPalette, QColor, QPaintEvent, \
     QPixmap
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QSlider, QTableView, QMenuBar, QStatusBar, \
@@ -20,9 +20,10 @@ class KneeControlMode(Enum):
     NONE = 0
     COLOR_PICKER = 1
 
-class KneePosition():
+class KneePosition(QObject):
 
-    def __init__(self, usbSerialCommunication):
+    def __init__(self, usbSerialCommunication, parent=None):
+        super().__init__(parent)
         self.distanceSensorArray = usbSerialCommunication
         # self.distanceSensorArray = serial.Serial('/dev/cu.usbmodem141201', 460800)
         for i in range(10):
@@ -240,6 +241,7 @@ class Canvas(QWidget):
 
         # 制御点の追加
         if event.button() == Qt.LeftButton:
+            print("Clicked")
             self.clickedPoints.append(event.pos())
             # print(self.clickedPoints)
 
@@ -336,6 +338,54 @@ class Canvas(QWidget):
                     for i in range(len(self.clickedPoints)):
                         painter.drawEllipse(self.clickedPoints[i], 1, 1)
 
+class TimerThread(QThread):
+    updateSignal = pyqtSignal(float, float)
+
+    def __init__(self, parent):
+        super().__init__(parent)
+
+    def run(self):
+        usbSerialCommunication = serial.Serial('/dev/cu.usbmodem141201', 460800)
+        self.kneePosition = KneePosition(usbSerialCommunication)  # 膝の座標を取得するためのクラス
+        print("Success Establish Connection.")
+
+        self.calibrateKneePosition()
+
+        self.timer = QTimer(self)
+        self.timer.setInterval(20)  # 50fps以下
+        self.timer.timeout.connect(self.getKneePosition)
+        self.timer.start()
+        self.exec()
+
+        # スレッドが終了してから
+        self.timer.stop()
+
+    def getKneePosition(self):
+        x, y = self.kneePosition.getPosition()
+        # x: 2  <-> 6
+        # y: 46 <-> 48 <-> 53
+        x, y = self.kneePosition.getMappedPositions8bit(x, y)
+        self.updateSignal.emit(x, y)
+
+
+    def calibrateKneePosition(self):
+        print("Start Calibration")
+        frames = 20
+
+        calibrationX = np.zeros(frames, dtype=np.float)
+        calibrationY = np.zeros(frames, dtype=np.float)
+
+        for i in range(frames):
+            print("frames: {}".format(i))
+            x, y = self.kneePosition.getPosition()
+            calibrationX[i] = x
+            calibrationY[i] = y
+
+        calibrateValueX = np.average(calibrationX)
+        calibrateValueY = np.average(calibrationY)
+
+        print("Success Calibration with x: {}, y: {} .".format(calibrateValueX, calibrateValueY))
+        self.kneePosition.setCalibrateValues(calibrateValueX, calibrateValueY)
 
 
 class MainWindow(QMainWindow):
@@ -349,15 +399,9 @@ class MainWindow(QMainWindow):
         self.penColor = QColorDialog()
 
         try:
-            usbSerialCommunication =  serial.Serial('/dev/cu.usbmodem141201', 460800)
-            self.kneePosition = KneePosition(usbSerialCommunication)  # 膝の座標を取得するためのクラス
-            print("Success Establish Connection.")
-
-            self.calibrateKneePosition()
-            # 定期的に膝の座標を取得する
-            self.timer = QTimer(self)
-            self.timer.timeout.connect(self.getKneePosition)
-            self.timer.start(5)  #200fps以下
+            self.timerThread = TimerThread(self)
+            self.timerThread.updateSignal.connect(self.controlParamsWithKnee)
+            self.timerThread.start()
             self.isEnabledKneeControl = True
 
         except serial.serialutil.SerialException as e:
@@ -517,7 +561,6 @@ class MainWindow(QMainWindow):
                 canvas.setEnabled(False)
             self.canvas[self.activeCanvas].setEnabled(True)
 
-
     def switchCanvas(self, indexClicked: QModelIndex):
         self.activeCanvas = indexClicked.row()
 
@@ -536,7 +579,6 @@ class MainWindow(QMainWindow):
             self.canvas[i].setVisible(False)
 
         self.statusbar.showMessage("レイヤ「" + str(self.canvasNameTableModel.canvasName[self.activeCanvas]) + "」へ切り替わりました")
-
 
     def savePicture(self):
         picture = QPixmap()
@@ -557,7 +599,6 @@ class MainWindow(QMainWindow):
         pickedColor = self.penColor.getColor(Qt.black)
         self.statusbar.showMessage(str(pickedColor))
 
-
     def keyPressEvent(self, keyEvent):
         # print(keyEvent.key())
         if keyEvent.key() == Qt.Key_Return:
@@ -566,34 +607,9 @@ class MainWindow(QMainWindow):
         if keyEvent.key() == Qt.Key_Backspace:
             self.canvas[self.activeCanvas].deleteLastPath()
 
-
-    def calibrateKneePosition(self):
-        print("Start Calibration")
-        frames = 20
-
-        calibrationX = np.zeros(frames, dtype=np.float)
-        calibrationY = np.zeros(frames, dtype=np.float)
-
-        for i in range(frames):
-            print("frames: {}".format(i))
-            x, y = self.kneePosition.getPosition()
-            calibrationX[i] = x
-            calibrationY[i] = y
-
-        calibrateValueX = np.average(calibrationX)
-        calibrateValueY = np.average(calibrationY)
-
-        print("Success Calibration with x: {}, y: {} .".format(calibrateValueX, calibrateValueY))
-        self.kneePosition.setCalibrateValues(calibrateValueX, calibrateValueY)
-
-    def getKneePosition(self):
-        x, y = self.kneePosition.getPosition()
-        # x: 2  <-> 6
-        # y: 46 <-> 48 <-> 53
-        x, y = self.kneePosition.getMappedPositions8bit(x, y)
+    def controlParamsWithKnee(self, x, y):
         statusStr = "x: " + str(x) + "y: " + str(y)
         self.statusbar.showMessage(statusStr)
-
         self.penColor.setCurrentColor(QColor(x, y ,0))
 
 
