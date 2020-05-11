@@ -341,32 +341,28 @@ class Canvas(QWidget):
 class TimerThread(QThread):
     updateSignal = pyqtSignal(float, float)
 
-    def __init__(self, parent):
+    def __init__(self, parent=None):
         super().__init__(parent)
 
-    def run(self):
         usbSerialCommunication = serial.Serial('/dev/cu.usbmodem141201', 460800)
         self.kneePosition = KneePosition(usbSerialCommunication)  # 膝の座標を取得するためのクラス
         print("Success Establish Connection.")
 
         self.calibrateKneePosition()
 
-        self.timer = QTimer(self)
-        self.timer.setInterval(20)  # 50fps以下
-        self.timer.timeout.connect(self.getKneePosition)
-        self.timer.start()
-        self.exec()
+    def run(self):
+
+        while True:
+            x, y = self.kneePosition.getPosition()
+            # x: 2  <-> 6
+            # y: 46 <-> 48 <-> 53
+            x, y = self.kneePosition.getMappedPositions8bit(x, y)
+            print("x: {}, y: {} .".format(x, y))
+            self.updateSignal.emit(x, y)
+            self.msleep(10)
 
         # スレッドが終了してから
-        self.timer.stop()
-
-    def getKneePosition(self):
-        x, y = self.kneePosition.getPosition()
-        # x: 2  <-> 6
-        # y: 46 <-> 48 <-> 53
-        x, y = self.kneePosition.getMappedPositions8bit(x, y)
-        self.updateSignal.emit(x, y)
-
+        # self.timer.stop()
 
     def calibrateKneePosition(self):
         print("Start Calibration")
@@ -397,9 +393,10 @@ class MainWindow(QMainWindow):
         self.activeCanvas = 0                # 操作レイヤの制御
         self.isEnabledKneeControl = False
         self.penColor = QColorDialog()
+        # self.timerThread = QThread()
 
         try:
-            self.timerThread = TimerThread(self)
+            self.timerThread = TimerThread()
             self.timerThread.updateSignal.connect(self.controlParamsWithKnee)
             self.timerThread.start()
             self.isEnabledKneeControl = True
@@ -606,6 +603,33 @@ class MainWindow(QMainWindow):
 
         if keyEvent.key() == Qt.Key_Backspace:
             self.canvas[self.activeCanvas].deleteLastPath()
+
+    def getKneePosition(self):
+        x, y = self.kneePosition.getPosition()
+        # x: 2  <-> 6
+        # y: 46 <-> 48 <-> 53
+        x, y = self.kneePosition.getMappedPositions8bit(x, y)
+        self.controlParamsWithKnee(x, y)
+
+
+    def calibrateKneePosition(self):
+        print("Start Calibration")
+        frames = 20
+
+        calibrationX = np.zeros(frames, dtype=np.float)
+        calibrationY = np.zeros(frames, dtype=np.float)
+
+        for i in range(frames):
+            print("frames: {}".format(i))
+            x, y = self.kneePosition.getPosition()
+            calibrationX[i] = x
+            calibrationY[i] = y
+
+        calibrateValueX = np.average(calibrationX)
+        calibrateValueY = np.average(calibrationY)
+
+        print("Success Calibration with x: {}, y: {} .".format(calibrateValueX, calibrateValueY))
+        self.kneePosition.setCalibrateValues(calibrateValueX, calibrateValueY)
 
     def controlParamsWithKnee(self, x, y):
         statusStr = "x: " + str(x) + "y: " + str(y)
