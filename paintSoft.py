@@ -50,12 +50,12 @@ class KneePosition(QObject):
 
     def setCalibrateValues(self, calibratedCenterX, calibratedCenterY):
         self.kneePosXCenter  = calibratedCenterX
-        self.kneePosXMaximum = calibratedCenterX + 2
-        self.kneePosXMinumum = calibratedCenterX - 2
+        self.kneePosXMaximum = calibratedCenterX + 1
+        self.kneePosXMinumum = calibratedCenterX - 1
 
         self.kneePosYCenter  = calibratedCenterY
-        self.kneePosYMaximum = calibratedCenterY + 4
-        self.kneePosYMinumum = calibratedCenterY - 2
+        self.kneePosYMaximum = calibratedCenterY + 3
+        self.kneePosYMinumum = calibratedCenterY - 1.5
 
 
     def getDistance(self):
@@ -363,6 +363,8 @@ class TimerThread(QThread):
 
         # スレッドが終了してから
         # self.timer.stop()
+
+        # TODO: スレッド停止後の処理
 
     def calibrateKneePosition(self):
         print("Start Calibration")
