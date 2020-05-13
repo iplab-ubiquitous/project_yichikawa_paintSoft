@@ -250,6 +250,7 @@ class Canvas(QWidget):
 
         self.existing_paths = []
         self.clicked_points = []
+        self.cursor_point: QPointF
         self.current_operation_mode = OperationMode.DRAWING_POINTS
 
         self.show()
@@ -274,9 +275,14 @@ class Canvas(QWidget):
 
 
     def mouseMoveEvent(self, event: QMouseEvent):
-        self.clicked_points.append(event.pos())
-        self.is_line_prediction = True
-        self.update()
+        if self.current_operation_mode == OperationMode.DRAWING_POINTS:
+            self.clicked_points.append(event.pos())
+            self.is_line_prediction = True
+            self.update()
+
+        elif self.current_operation_mode == OperationMode.MOVING_POINTS:
+            self.cursor_point = event.pos()
+
 
     def paintEvent(self, event: QPaintEvent):
         painter = QPainter(self)
@@ -307,33 +313,47 @@ class Canvas(QWidget):
                     painter.drawPath(path)
 
 
-            #　現在描いているパスの描画
-            if len(self.clicked_points) > 3:
-                # print(self.clickedPoints)
-                # クリックした点まで線を伸ばすため、終点を一時的にリストに入れている
-                self.clicked_points.append(self.clicked_points[len(self.clicked_points) - 1])
-                painter_path = self.rounded_polygon.get_path(self.clicked_points)
+            if self.current_operation_mode == OperationMode.DRAWING_POINTS:
+                #　現在描いているパスの描画
+                if len(self.clicked_points) > 3:
+                    # print(self.clickedPoints)
+                    # クリックした点まで線を伸ばすため、終点を一時的にリストに入れている
+                    self.clicked_points.append(self.clicked_points[len(self.clicked_points) - 1])
+                    painter_path = self.rounded_polygon.get_path(self.clicked_points)
 
-                for i in range(len(self.clicked_points)):
-                    painter.drawEllipse(self.clicked_points[i], 1, 1)
-
-                if self.is_line_prediction:
-                    self.clicked_points.pop()
-                    self.is_line_prediction = False
-                painter.drawPath(painter_path)
-                self.clicked_points.pop()
-
-            else:
-                if self.is_line_prediction:
-                    painter.setPen(Qt.red)
                     for i in range(len(self.clicked_points)):
                         painter.drawEllipse(self.clicked_points[i], 1, 1)
+
+                    if self.is_line_prediction:
+                        self.clicked_points.pop()
+                        self.is_line_prediction = False
+                    painter.drawPath(painter_path)
                     self.clicked_points.pop()
-                    self.is_line_prediction = False
 
                 else:
-                    for i in range(len(self.clicked_points)):
-                        painter.drawEllipse(self.clicked_points[i], 1, 1)
+                    if self.is_line_prediction:
+                        painter.setPen(Qt.red)
+                        for i in range(len(self.clicked_points)):
+                            painter.drawEllipse(self.clicked_points[i], 1, 1)
+                        self.clicked_points.pop()
+                        self.is_line_prediction = False
+
+                    else:
+                        for i in range(len(self.clicked_points)):
+                            painter.drawEllipse(self.clicked_points[i], 1, 1)
+
+            elif self.current_operation_mode == OperationMode.MOVING_POINTS:
+                #すでに確定されているパスの制御点の描画
+                for path in self.existing_paths:
+                    for i in range(path.elementCount()):
+                        control_point = QPointF(path.elementAt(i).x, path.elementAt(i).y)
+                        painter.drawEllipse(control_point, 3, 3)
+                        
+
+                painter.setPen(Qt.red)
+
+
+
 
     def fix_path(self):
         # パスを確定
