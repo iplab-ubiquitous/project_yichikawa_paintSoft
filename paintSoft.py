@@ -516,22 +516,22 @@ class MainWindow(QMainWindow):
         QMetaObject.connectSlotsByName(self)
 
     def add_canvas(self):
-        newCanvas = Canvas(self.centralwidget)
-        newCanvas.setGeometry(QRect(0, 0, 600, 600))
-        newCanvas.setObjectName("canvas")
-        palette = newCanvas.palette()
+        new_canvas = Canvas(self.centralwidget)
+        new_canvas.setGeometry(QRect(0, 0, 600, 600))
+        new_canvas.setObjectName("canvas")
+        palette = new_canvas.palette()
         palette.setColor(QPalette.Background, QColor(255,255,255,0))
-        newCanvas.setPalette(palette)
-        newCanvas.setAutoFillBackground(True)
+        new_canvas.setPalette(palette)
+        new_canvas.setAutoFillBackground(True)
 
-        self.canvas.append(newCanvas)
+        self.canvas.append(new_canvas)
         self.active_canvas = len(self.canvas) - 1
 
 
-        canvasName = self.addCanvasNameTextEdit.toPlainText()
-        if canvasName == "":
-            canvasName = 'canvas[' + str(self.active_canvas) + ']'
-        self.canvasNameTableModel.add_canvas(canvasName)
+        canvas_name = self.addCanvasNameTextEdit.toPlainText()
+        if canvas_name == "":
+            canvas_name = 'canvas[' + str(self.active_canvas) + ']'
+        self.canvasNameTableModel.add_canvas(canvas_name)
         self.canvasTableView.setCurrentIndex(self.canvasNameTableModel.index(self.active_canvas, 0))
         self.canvasNameTableModel.layoutChanged.emit()
 
@@ -546,15 +546,15 @@ class MainWindow(QMainWindow):
             if self.active_canvas == len(self.canvas) - 1:
                 self.active_canvas -= 1
 
-            deletedCanvas = self.canvas.pop()
+            deleted_canvas = self.canvas.pop()
             self.canvasNameTableModel.delete_last_canvas()
             self.canvasTableView.setCurrentIndex(self.canvasNameTableModel.index(self.active_canvas, 0))
             self.canvasNameTableModel.layoutChanged.emit()
 
-            for i in range(len(deletedCanvas.existing_paths)):
-                deletedCanvas.existing_paths.pop()
+            for i in range(len(deleted_canvas.existing_paths)):
+                deleted_canvas.existing_paths.pop()
 
-            deletedCanvas.hide()
+            deleted_canvas.hide()
             # 使用するレイヤだけ使用可能にする
             for canvas in self.canvas:
                 canvas.setEnabled(False)
@@ -585,20 +585,20 @@ class MainWindow(QMainWindow):
         picture.save("test.png")
 
     def file_read(self):
-        fileName, _ = QFileDialog.getOpenFileNames(self, "open file", "~/sampleImages", "Images (*.jpg *.jpeg *.png *.bmp)")
-        fileName = str(fileName)
-        print(fileName)
+        file_name, _ = QFileDialog.getOpenFileNames(self, "open file", "~/sampleImages", "Images (*.jpg *.jpeg *.png *.bmp)")
+        file_name = str(file_name)
+        print(file_name)
 
-        if fileName:
-            self.canvas[self.active_canvas].set_picture_file_name(fileName)
+        if file_name:
+            self.canvas[self.active_canvas].set_picture_file_name(file_name)
         else:
             self.statusbar.showMessage("画像の読み込みに失敗しました")
 
     def pick_color(self):
-        pickedColor = self.pen_color.getColor(Qt.black)
+        picked_color = self.pen_color.getColor(Qt.black)
         # print(pickedColor.hsvSaturation())
         # self.currentColorSaturation = pickedColor.hsvSaturation()
-        self.statusbar.showMessage(str(pickedColor))
+        self.statusbar.showMessage(str(picked_color))
 
     # TODO: モードと操作の接続
     def switch_knee_operation_mode(self):
@@ -629,11 +629,11 @@ class MainWindow(QMainWindow):
             self.canvas[self.active_canvas].delete_last_path()
 
     def control_params_with_knee(self, x, y):
-        statusStr = "x: " + str(x) + "y: " + str(y)
-        self.statusbar.showMessage(statusStr)
-        nextColor = QColor()
-        nextColor.setHsv(x, 255, y, 255)
-        self.pen_color.setCurrentColor(nextColor)
+        sstatus_str = "x: " + str(x) + "y: " + str(y)
+        self.statusbar.showMessage(sstatus_str)
+        next_color = QColor()
+        next_color.setHsv(x, 255, y, 255)
+        self.pen_color.setCurrentColor(next_color)
 
 
 if __name__ == '__main__':
