@@ -16,7 +16,7 @@ ALPHA_EMA = 0.7
 
 
 
-class KneeOperationMode(Enum):
+class OperationMode(Enum):
     NONE           = 0
     DRAWING_POINTS = 1
     MOVING_POINTS  = 2
@@ -250,21 +250,27 @@ class Canvas(QWidget):
 
         self.existing_paths = []
         self.clicked_points = []
+        self.current_operation_mode = OperationMode.DRAWING_POINTS
 
         self.show()
 
     def mousePressEvent(self, event: QMouseEvent):
 
-        # 制御点の追加
-        if event.button() == Qt.LeftButton:
-            print("Clicked")
-            self.clicked_points.append(event.pos())
-            # print(self.clickedPoints)
+        if self.current_operation_mode == OperationMode.DRAWING_POINTS:
+            # 制御点の追加
+            if event.button() == Qt.LeftButton:
+                print("Clicked_D")
+                self.clicked_points.append(event.pos())
+                # print(self.clickedPoints)
 
-        # 直前の制御点の消去
-        if event.button() == Qt.RightButton:
-            self.clicked_points.pop()
-        self.update()
+            # 直前の制御点の消去
+            if event.button() == Qt.RightButton:
+                self.clicked_points.pop()
+            self.update()
+
+        elif self.current_operation_mode == OperationMode.MOVING_POINTS:
+            if event.button() == Qt.LeftButton:
+                print("Clicked_M")
 
 
     def mouseMoveEvent(self, event: QMouseEvent):
@@ -292,7 +298,6 @@ class Canvas(QWidget):
             label = QLabel(self)
             label.setPixmap(image)
             label.show()
-
 
         else:
             painter.setPen(Qt.black)
@@ -330,7 +335,6 @@ class Canvas(QWidget):
                     for i in range(len(self.clicked_points)):
                         painter.drawEllipse(self.clicked_points[i], 1, 1)
 
-
     def fix_path(self):
         # パスを確定
         if self.is_line_prediction:
@@ -347,6 +351,9 @@ class Canvas(QWidget):
         if len(self.existing_paths) > 0:
             self.existing_paths.pop()
             self.update()
+
+    def operation_mode_changed(self, to: OperationMode):
+        self.current_operation_mode = to
 
     def set_picture_file_name(self, picture_file_name: str):
         self.is_picture_canvas = True
@@ -388,7 +395,7 @@ class MainWindow(QMainWindow):
         self.is_enabled_knee_control = False
         self.pen_color = QColorDialog()
         self.current_color_saturation = 127
-        self.current_knee_operation_mode = KneeOperationMode.NONE
+        self.current_operation_mode = OperationMode.NONE
         # self.timerThread = QThread()
 
         try:
@@ -523,6 +530,7 @@ class MainWindow(QMainWindow):
         palette.setColor(QPalette.Background, QColor(255,255,255,0))
         new_canvas.setPalette(palette)
         new_canvas.setAutoFillBackground(True)
+        new_canvas.operation_mode_changed(self.current_operation_mode)
 
         self.canvas.append(new_canvas)
         self.active_canvas = len(self.canvas) - 1
@@ -568,6 +576,7 @@ class MainWindow(QMainWindow):
         for canvas in self.canvas:
             canvas.setEnabled(False)
         self.canvas[self.active_canvas].setEnabled(True)
+        self.canvas[self.active_canvas].operation_mode_changed(self.current_operation_mode)
 
         #選択したレイヤと下のレイヤは見えるようにする
         for i in range(0, self.active_canvas + 1):
@@ -603,22 +612,23 @@ class MainWindow(QMainWindow):
     # TODO: モードと操作の接続
     def switch_knee_operation_mode(self):
         # TODO: NONEは消す（多分）
-        if self.current_knee_operation_mode == KneeOperationMode.NONE:
-            self.current_knee_operation_mode = KneeOperationMode.DRAWING_POINTS
+        if self.current_operation_mode == OperationMode.NONE:
+            self.current_operation_mode = OperationMode.DRAWING_POINTS
 
-        elif self.current_knee_operation_mode == KneeOperationMode.DRAWING_POINTS:
-            self.current_knee_operation_mode = KneeOperationMode.MOVING_POINTS
+        elif self.current_operation_mode == OperationMode.DRAWING_POINTS:
+            self.current_operation_mode = OperationMode.MOVING_POINTS
 
-        elif self.current_knee_operation_mode == KneeOperationMode.MOVING_POINTS:
-            self.current_knee_operation_mode = KneeOperationMode.COLOR_PICKER
+        elif self.current_operation_mode == OperationMode.MOVING_POINTS:
+            self.current_operation_mode = OperationMode.COLOR_PICKER
 
-        elif self.current_knee_operation_mode == KneeOperationMode.COLOR_PICKER:
-            self.current_knee_operation_mode = KneeOperationMode.DRAWING_POINTS
+        elif self.current_operation_mode == OperationMode.COLOR_PICKER:
+            self.current_operation_mode = OperationMode.DRAWING_POINTS
 
         else:
-            self.current_knee_operation_mode = KneeOperationMode.NONE
+            self.current_operation_mode = OperationMode.NONE
 
-        self.selectOperationModeButton.setText("Mode:{}".format(self.current_knee_operation_mode.value))
+        self.selectOperationModeButton.setText("Mode:{}".format(self.current_operation_mode.value))
+        self.canvas[self.active_canvas].operation_mode_changed(self.current_operation_mode)
 
     def keyPressEvent(self, keyEvent):
         # print(keyEvent.key())
