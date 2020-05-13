@@ -274,6 +274,7 @@ class Canvas(QWidget):
                 print("Clicked_M")
 
 
+
     def mouseMoveEvent(self, event: QMouseEvent):
         if self.current_operation_mode == OperationMode.DRAWING_POINTS:
             self.clicked_points.append(event.pos())
@@ -282,6 +283,7 @@ class Canvas(QWidget):
 
         elif self.current_operation_mode == OperationMode.MOVING_POINTS:
             self.cursor_point = event.pos()
+            self.update()
 
 
     def paintEvent(self, event: QPaintEvent):
@@ -348,7 +350,7 @@ class Canvas(QWidget):
                     for i in range(path.elementCount()):
                         control_point = QPointF(path.elementAt(i).x, path.elementAt(i).y)
                         painter.drawEllipse(control_point, 3, 3)
-                        
+
 
                 painter.setPen(Qt.red)
 
@@ -374,6 +376,7 @@ class Canvas(QWidget):
 
     def operation_mode_changed(self, to: OperationMode):
         self.current_operation_mode = to
+        self.fix_path()
 
     def set_picture_file_name(self, picture_file_name: str):
         self.is_picture_canvas = True
@@ -415,7 +418,7 @@ class MainWindow(QMainWindow):
         self.is_enabled_knee_control = False
         self.pen_color = QColorDialog()
         self.current_color_saturation = 127
-        self.current_operation_mode = OperationMode.NONE
+        self.current_operation_mode = OperationMode.DRAWING_POINTS
         # self.timerThread = QThread()
 
         try:
@@ -539,7 +542,7 @@ class MainWindow(QMainWindow):
         self.deleteCanvasButton.setText(_translate("MainWindow", "レイヤを削除"))
         self.savePictureButton.setText(_translate("MainWindow", "内容を保存(SS)"))
         # self.fileReadButton.setText(_translate("MainWindow", "ファイルを読込む"))
-        self.selectOperationModeButton.setText(_translate("MainWindow", "Mode:0"))
+        self.selectOperationModeButton.setText(_translate("MainWindow", "Mode:1"))
         QMetaObject.connectSlotsByName(self)
 
     def add_canvas(self):
@@ -648,7 +651,9 @@ class MainWindow(QMainWindow):
             self.current_operation_mode = OperationMode.NONE
 
         self.selectOperationModeButton.setText("Mode:{}".format(self.current_operation_mode.value))
+        self.statusbar.showMessage("Mode:{}".format(self.current_operation_mode.value))
         self.canvas[self.active_canvas].operation_mode_changed(self.current_operation_mode)
+
 
     def keyPressEvent(self, keyEvent):
         # print(keyEvent.key())
