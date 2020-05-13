@@ -64,6 +64,9 @@ class Ui_MainWindow(object):
         self.colorPickerToolButton = QtWidgets.QToolButton(self.centralwidget)
         self.colorPickerToolButton.setGeometry(QtCore.QRect(810, 530, 71, 22))
         self.colorPickerToolButton.setObjectName("colorPickerToolButton")
+        self.selectModeButton = QtWidgets.QPushButton(self.centralwidget)
+        self.selectModeButton.setGeometry(QtCore.QRect(610, 80, 71, 31))
+        self.selectModeButton.setObjectName("selectModeButton")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 889, 22))
@@ -84,4 +87,5 @@ class Ui_MainWindow(object):
         self.savePictureButton.setText(_translate("MainWindow", "キャンバスを保存"))
         self.fileReadButton.setText(_translate("MainWindow", "ファイルを読込む"))
         self.colorPickerToolButton.setText(_translate("MainWindow", "カラーピッカー"))
+        self.selectModeButton.setText(_translate("MainWindow", "Mode:0"))
 

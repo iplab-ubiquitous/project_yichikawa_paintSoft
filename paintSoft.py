@@ -16,9 +16,11 @@ ALPHA_EMA = 0.7
 
 
 
-class KneeControlMode(Enum):
-    NONE = 0
-    COLOR_PICKER = 1
+class KneeOperationMode(Enum):
+    NONE           = 0
+    DRAWING_POINTS = 1
+    MOVING_POINTS  = 2
+    COLOR_PICKER   = 3
 
 class KneePosition(QObject):
 
@@ -362,8 +364,6 @@ class TimerThread(QThread):
             self.msleep(10)
 
         # スレッドが終了してから
-        # self.timer.stop()
-
         # TODO: スレッド停止後の処理
 
     def calibrateKneePosition(self):
@@ -385,7 +385,6 @@ class TimerThread(QThread):
         print("Success Calibration with x: {}, y: {} .".format(calibrateValueX, calibrateValueY))
         self.kneePosition.setCalibrateValues(calibrateValueX, calibrateValueY)
 
-
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
@@ -395,6 +394,8 @@ class MainWindow(QMainWindow):
         self.activeCanvas = 0                # 操作レイヤの制御
         self.isEnabledKneeControl = False
         self.penColor = QColorDialog()
+        self.currentColorSaturation = 127
+        self.currentKneeOperationMode = KneeOperationMode.NONE
         # self.timerThread = QThread()
 
         try:
@@ -472,6 +473,11 @@ class MainWindow(QMainWindow):
         self.colorPickerToolButton.setObjectName("colorPickerToolButton")
         self.colorPickerToolButton.clicked.connect(self.pickColor)
 
+        self.selectOperationModeButton = QPushButton(self.centralwidget)
+        self.selectOperationModeButton.setGeometry(QRect(610, 80, 71, 31))
+        self.selectOperationModeButton.setObjectName("selectOperationModeButton")
+        self.selectOperationModeButton.clicked.connect(self.switchKneeOperationMode)
+
         # self.fileReadButton = QPushButton(self.centralwidget)
         # self.fileReadButton.setGeometry(QRect(740, 50, 140, 35))
         # self.fileReadButton.setObjectName("fileReadButton")
@@ -513,6 +519,7 @@ class MainWindow(QMainWindow):
         self.deleteCanvasButton.setText(_translate("MainWindow", "レイヤを削除"))
         self.savePictureButton.setText(_translate("MainWindow", "内容を保存(SS)"))
         # self.fileReadButton.setText(_translate("MainWindow", "ファイルを読込む"))
+        self.selectOperationModeButton.setText(_translate("MainWindow", "Mode:0"))
         QMetaObject.connectSlotsByName(self)
 
     def addCanvas(self):
@@ -596,7 +603,29 @@ class MainWindow(QMainWindow):
 
     def pickColor(self):
         pickedColor = self.penColor.getColor(Qt.black)
+        # print(pickedColor.hsvSaturation())
+        # self.currentColorSaturation = pickedColor.hsvSaturation()
         self.statusbar.showMessage(str(pickedColor))
+
+    # TODO: モードと操作の接続
+    def switchKneeOperationMode(self):
+        # TODO: NONEは消す（多分）
+        if self.currentKneeOperationMode == KneeOperationMode.NONE:
+            self.currentKneeOperationMode = KneeOperationMode.DRAWING_POINTS
+
+        elif self.currentKneeOperationMode == KneeOperationMode.DRAWING_POINTS:
+            self.currentKneeOperationMode = KneeOperationMode.MOVING_POINTS
+
+        elif self.currentKneeOperationMode == KneeOperationMode.MOVING_POINTS:
+            self.currentKneeOperationMode = KneeOperationMode.COLOR_PICKER
+
+        elif self.currentKneeOperationMode == KneeOperationMode.COLOR_PICKER:
+            self.currentKneeOperationMode = KneeOperationMode.DRAWING_POINTS
+
+        else:
+            self.currentKneeOperationMode = KneeOperationMode.NONE
+
+        self.selectOperationModeButton.setText("Mode:{}".format(self.currentKneeOperationMode.value))
 
     def keyPressEvent(self, keyEvent):
         # print(keyEvent.key())
@@ -612,7 +641,6 @@ class MainWindow(QMainWindow):
         # y: 46 <-> 48 <-> 53
         x, y = self.kneePosition.getMappedPositions8bit(x, y)
         self.controlParamsWithKnee(x, y)
-
 
     def calibrateKneePosition(self):
         print("Start Calibration")
@@ -636,7 +664,9 @@ class MainWindow(QMainWindow):
     def controlParamsWithKnee(self, x, y):
         statusStr = "x: " + str(x) + "y: " + str(y)
         self.statusbar.showMessage(statusStr)
-        self.penColor.setCurrentColor(QColor(x, y ,0))
+        nextColor = QColor()
+        nextColor.setHsv(x, 255, y, 255)
+        self.penColor.setCurrentColor(nextColor)
 
 
 if __name__ == '__main__':
