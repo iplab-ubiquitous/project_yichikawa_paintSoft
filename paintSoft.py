@@ -255,7 +255,7 @@ class Canvas(QWidget):
         self.nearest_path = QPainterPath()
         self.nearest_distance = 20.0
         self.nearest_index = 0
-        self.is_grabbed_point = False
+        self.is_drag_point = False
 
         self.show()
 
@@ -274,13 +274,9 @@ class Canvas(QWidget):
 
         elif self.current_operation_mode == OperationMode.MOVING_POINTS:
             if event.button() == Qt.LeftButton:
+                self.is_drag_point = True
                 self.cursor_point = event.pos()
-                self.move_point()
                 self.update()
-
-    # TODO: 必要そうになかったら後で消す
-    def mouseReleaseEvent(self, event: QMouseEvent):
-        pass
 
     def mouseMoveEvent(self, event: QMouseEvent):
         if self.current_operation_mode == OperationMode.DRAWING_POINTS:
@@ -290,7 +286,17 @@ class Canvas(QWidget):
 
         elif self.current_operation_mode == OperationMode.MOVING_POINTS:
             self.cursor_point = event.pos()
+            if self.is_drag_point:
+                self.move_point()
             self.update()
+
+    def mouseReleaseEvent(self, event: QMouseEvent):
+        if self.current_operation_mode == OperationMode.DRAWING_POINTS:
+            pass
+
+        elif self.current_operation_mode == OperationMode.MOVING_POINTS:
+            self.is_drag_point = False
+
 
     def dragMoveEvent(self, event: QDragMoveEvent):
         print("drag moving")
