@@ -2,7 +2,7 @@ import sys, math, serial
 from PyQt5.QtCore import Qt, QPoint, QPointF, QRect, QSize, QMetaObject, QCoreApplication, QAbstractTableModel, \
     QModelIndex, QTimer, QThread, QObject, pyqtSignal
 from PyQt5.QtGui import QPainter, QPainterPath, QPolygon, QMouseEvent, QImage, qRgb, QPalette, QColor, QPaintEvent, \
-    QPixmap
+    QPixmap, QDragLeaveEvent, QDragMoveEvent
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QSlider, QTableView, QMenuBar, QStatusBar, \
     QPushButton, QTextEdit, QAbstractItemView, QFileDialog, QLabel, QToolButton, QColorDialog
 import PyQt5.sip
@@ -239,8 +239,7 @@ class Canvas(QWidget):
         self.is_picture_canvas = False
         self.picture_file_name = ""
 
-        # self.setGeometry(300, 50, 300, 300)
-        # self.setWindowTitle("Canvas")
+        # マウストラック有効化
         self.setMouseTracking(True)
 
         # マウス移動で出る予測線とクリックして出る本線を描画するときに区別する
@@ -250,8 +249,13 @@ class Canvas(QWidget):
 
         self.existing_paths = []
         self.clicked_points = []
-        self.cursor_point: QPointF
+        self.cursor_point = QPointF()
         self.current_operation_mode = OperationMode.DRAWING_POINTS
+
+        self.nearest_path = QPainterPath()
+        self.nearest_distance = 20.0
+        self.nearest_index = 0
+        self.is_grabbed_point = False
 
         self.show()
 
@@ -260,7 +264,6 @@ class Canvas(QWidget):
         if self.current_operation_mode == OperationMode.DRAWING_POINTS:
             # 制御点の追加
             if event.button() == Qt.LeftButton:
-                print("Clicked_D")
                 self.clicked_points.append(event.pos())
                 # print(self.clickedPoints)
 
@@ -271,9 +274,13 @@ class Canvas(QWidget):
 
         elif self.current_operation_mode == OperationMode.MOVING_POINTS:
             if event.button() == Qt.LeftButton:
-                print("Clicked_M")
+                self.cursor_point = event.pos()
+                self.move_point()
+                self.update()
 
-
+    # TODO: 必要そうになかったら後で消す
+    def mouseReleaseEvent(self, event: QMouseEvent):
+        pass
 
     def mouseMoveEvent(self, event: QMouseEvent):
         if self.current_operation_mode == OperationMode.DRAWING_POINTS:
@@ -285,6 +292,11 @@ class Canvas(QWidget):
             self.cursor_point = event.pos()
             self.update()
 
+    def dragMoveEvent(self, event: QDragMoveEvent):
+        print("drag moving")
+
+    def dragLeaveEvent(self, event: QDragLeaveEvent):
+        print("drag leave")
 
     def paintEvent(self, event: QPaintEvent):
         painter = QPainter(self)
@@ -346,16 +358,28 @@ class Canvas(QWidget):
 
             elif self.current_operation_mode == OperationMode.MOVING_POINTS:
                 #すでに確定されているパスの制御点の描画
+                self.nearest_distance = 20.0
                 for path in self.existing_paths:
                     for i in range(path.elementCount()):
                         control_point = QPointF(path.elementAt(i).x, path.elementAt(i).y)
                         painter.drawEllipse(control_point, 3, 3)
 
+                        #現在のカーソル位置から最も近い点と、その点が属するpathを記録
+                        distance = math.sqrt((control_point.x() - self.cursor_point.x()) ** 2 + (control_point.y() - self.cursor_point.y()) ** 2)
+                        if distance < self.nearest_distance:
+                            self.nearest_distance = distance
+                            self.nearest_path     = path
+                            self.nearest_index    = i
 
-                painter.setPen(Qt.red)
+                # 最も近い点を赤く描画
+                if self.nearest_distance < 20:
+                    painter.setPen(Qt.red)
+                    nearest_control_point = QPointF(self.nearest_path.elementAt(self.nearest_index).x, self.nearest_path.elementAt(self.nearest_index).y)
+                    print(nearest_control_point)
+                    painter.drawEllipse(nearest_control_point, 3, 3)
 
-
-
+    def move_point(self):
+        self.nearest_path.setElementPositionAt(self.nearest_index, self.cursor_point.x(), self.cursor_point.y())
 
     def fix_path(self):
         # パスを確定
