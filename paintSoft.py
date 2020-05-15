@@ -265,9 +265,9 @@ class Canvas(QWidget):
         self.current_operation_mode = OperationMode.DRAWING_POINTS
 
         self.nearest_path = QPainterPath()
-        self.nearest_distance = 20.0
+        self.nearest_distance = 30.0
         self.nearest_index = 0
-        self.is_drag_point = False
+        self.is_dragging = False
 
         self.show()
 
@@ -286,7 +286,7 @@ class Canvas(QWidget):
 
         elif self.current_operation_mode == OperationMode.MOVING_POINTS:
             if event.button() == Qt.LeftButton:
-                self.is_drag_point = True
+                self.is_dragging = True
                 if self.is_enable_knee_control:
                     self.recode_knee_and_cursor_position()
 
@@ -301,7 +301,7 @@ class Canvas(QWidget):
 
         elif self.current_operation_mode == OperationMode.MOVING_POINTS:
             self.cursor_position = event.pos()
-            if self.is_drag_point:
+            if self.is_dragging:
                 self.move_point()
             self.update()
 
@@ -310,7 +310,7 @@ class Canvas(QWidget):
             pass
 
         elif self.current_operation_mode == OperationMode.MOVING_POINTS:
-            self.is_drag_point = False
+            self.is_dragging = False
 
 
     def dragMoveEvent(self, event: QDragMoveEvent):
@@ -379,14 +379,14 @@ class Canvas(QWidget):
 
             elif self.current_operation_mode == OperationMode.MOVING_POINTS:
                 #すでに確定されているパスの制御点の描画
-                self.nearest_distance = 20.0
+                self.nearest_distance = 50.0
                 for path in self.existing_paths:
                     for i in range(path.elementCount()):
                         control_point = QPointF(path.elementAt(i).x, path.elementAt(i).y)
                         painter.drawEllipse(control_point, 3, 3)
 
                         #現在のカーソル位置から最も近い点と、その点が属するpathを記録、更新
-                        if self.is_drag_point:
+                        if not self.is_dragging:
                             distance = math.sqrt((control_point.x() - self.cursor_position.x()) ** 2 + (control_point.y() - self.cursor_position.y()) ** 2)
                             if distance < self.nearest_distance:
                                 self.nearest_distance = distance
@@ -394,7 +394,7 @@ class Canvas(QWidget):
                                 self.nearest_index    = i
 
                 # 最も近い点を赤く描画
-                if self.nearest_distance < 20:
+                if self.nearest_distance < 30:
                     painter.setPen(Qt.red)
                     nearest_control_point = QPointF(self.nearest_path.elementAt(self.nearest_index).x, self.nearest_path.elementAt(self.nearest_index).y)
                     print(nearest_control_point)
@@ -402,7 +402,8 @@ class Canvas(QWidget):
 
     def move_point(self):
         if self.is_enable_knee_control:
-            amount_of_change = self.cursor_position_mousePressed + (self.knee_position - self.knee_position_mousePressed)
+            amount_of_change = QPointF( self.cursor_position_mousePressed.x() + (self.knee_position.x() - self.knee_position_mousePressed.x())
+                                       ,self.cursor_position_mousePressed.y() - (self.knee_position.y() - self.knee_position_mousePressed.y()))
             self.nearest_path.setElementPositionAt(self.nearest_index, amount_of_change.x(), amount_of_change.y())
         else:
             self.nearest_path.setElementPositionAt(self.nearest_index, self.cursor_position.x(), self.cursor_position.y())
@@ -411,6 +412,12 @@ class Canvas(QWidget):
     def set_knee_position(self, x, y):
         self.knee_position.setX(x)
         self.knee_position.setY(y)
+
+        if self.is_dragging:
+            if self.current_operation_mode == OperationMode.MOVING_POINTS:
+                self.move_point()
+                self.update()
+
 
     def recode_knee_and_cursor_position(self):
         self.knee_position_mousePressed.setX(self.knee_position.x())
@@ -735,7 +742,7 @@ class MainWindow(QMainWindow):
             pass
 
         elif self.current_operation_mode == OperationMode.MOVING_POINTS:
-            x, y = self.kneePosition.get_mapped_positions(x, y, 0, 100)
+            x, y = self.kneePosition.get_mapped_positions(x, y, 0, 200)
             self.canvas[self.active_canvas].set_knee_position(x, y)
 
         elif self.current_operation_mode == OperationMode.COLOR_PICKER:
