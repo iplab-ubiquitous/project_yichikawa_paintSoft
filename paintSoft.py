@@ -9,11 +9,9 @@ import PyQt5.sip
 import numpy as np
 from enum import Enum
 
-
 NUM_OF_SENSORS = 10
 WAITING_FRAMES = 100
 ALPHA_EMA = 0.7
-
 
 
 class OperationMode(Enum):
@@ -21,6 +19,7 @@ class OperationMode(Enum):
     DRAWING_POINTS = 1
     MOVING_POINTS  = 2
     COLOR_PICKER   = 3
+
 
 class KneePosition(QObject):
 
@@ -30,7 +29,7 @@ class KneePosition(QObject):
         for i in range(10):
             self.distance_sensor_array_communication.readline()  # 読み飛ばし(欠けたデータが読み込まれるのを避ける)
 
-        #（仮の）膝の座標値
+        # （仮の）膝の座標値
         self.old_x = 0
         self.old_y = 0
 
@@ -42,12 +41,12 @@ class KneePosition(QObject):
         self.knee_pos_y_center  = 48
         self.knee_pos_y_maximum = 53
 
-        #膝検出・位置計算用
+        # 膝検出・位置計算用
         self.sensor_val = np.zeros(NUM_OF_SENSORS, dtype=np.float)
         self.weight = ([1.00] * NUM_OF_SENSORS)
         self.val = np.zeros((WAITING_FRAMES, NUM_OF_SENSORS), dtype=np.float)
         self.leg_flag = False
-        self.sensor_flt = np.zeros((WAITING_FRAMES,NUM_OF_SENSORS),dtype=np.float)
+        self.sensor_flt = np.zeros((WAITING_FRAMES, NUM_OF_SENSORS), dtype=np.float)
 
     def calibrate_knee_position(self):
         print("Set up EMA...")
@@ -73,14 +72,13 @@ class KneePosition(QObject):
 
         print("Success Calibration with x: {}, y: {} .".format(calibrate_value_x, calibrate_value_y))
 
-        self.knee_pos_x_center  = calibrate_value_x
+        self.knee_pos_x_center = calibrate_value_x
         self.knee_pos_x_maximum = calibrate_value_x + 0.5
         self.knee_pos_x_minimum = calibrate_value_x - 0.5
 
-        self.knee_pos_y_center  = calibrate_value_y
+        self.knee_pos_y_center = calibrate_value_y
         self.knee_pos_y_maximum = calibrate_value_y + 2
         self.knee_pos_y_minimum = calibrate_value_y - 1
-
 
     def get_distance(self):
         distances = float(0)
@@ -94,8 +92,10 @@ class KneePosition(QObject):
 
     def get_mapped_positions(self, x, y, lower_limit, upper_limit):
         x = self.get_mapped_value(x, self.knee_pos_x_minimum, self.knee_pos_x_maximum, lower_limit, upper_limit)
-        if x > upper_limit: x = upper_limit
-        elif x < lower_limit: x = lower_limit
+        if x > upper_limit:
+            x = upper_limit
+        elif x < lower_limit:
+            x = lower_limit
 
         center = (upper_limit - lower_limit + 1) / 2 - 1
 
@@ -104,9 +104,10 @@ class KneePosition(QObject):
         else:
             y = self.get_mapped_value(y, self.knee_pos_y_center, self.knee_pos_y_maximum, center, upper_limit)
 
-
-        if y > upper_limit: y = upper_limit
-        elif y < lower_limit: y = lower_limit
+        if y > upper_limit:
+            y = upper_limit
+        elif y < lower_limit:
+            y = lower_limit
 
         return x, y
 
@@ -114,7 +115,7 @@ class KneePosition(QObject):
         weight = ([1.00] * NUM_OF_SENSORS)
 
         sensor_values = self.get_distance()
-        sensor_values = [64-float(v) for v in sensor_values] # 計算を容易にするため膝との距離を反転（要らないかもしれない）
+        sensor_values = [64 - float(v) for v in sensor_values]  # 計算を容易にするため膝との距離を反転（要らないかもしれない）
 
         max_distance = np.max(sensor_values)
 
@@ -127,7 +128,6 @@ class KneePosition(QObject):
         new_x = 0
 
         for i in range(NUM_OF_SENSORS):
-
             new_x += (i * weight[i] / weight_sum)
 
         new_x = (new_x - self.old_x) * ALPHA_EMA + self.old_x
@@ -137,6 +137,7 @@ class KneePosition(QObject):
         self.old_y = new_y
 
         return new_x, new_y
+
 
 # 任意の点を通る曲線を描くためのパスを作る
 class RoundedPolygon(QPolygon):
@@ -210,6 +211,7 @@ class RoundedPolygon(QPolygon):
 
         return m_path
 
+
 class CanvasNameTableModel(QAbstractTableModel):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -236,6 +238,7 @@ class CanvasNameTableModel(QAbstractTableModel):
 
     def delete_last_canvas(self):
         self.canvas_name.pop()
+
 
 class Canvas(QWidget):
     def __init__(self, parent=None):
@@ -312,7 +315,6 @@ class Canvas(QWidget):
         elif self.current_operation_mode == OperationMode.MOVING_POINTS:
             self.is_dragging = False
 
-
     def dragMoveEvent(self, event: QDragMoveEvent):
         print("drag moving")
 
@@ -325,7 +327,7 @@ class Canvas(QWidget):
         if self.is_picture_canvas:
             self.setAutoFillBackground(False)
             image = QPixmap(self.picture_file_name)
-            size  = image.size()
+            size = image.size()
             offset_x = 0
             offset_y = 0
 
@@ -347,9 +349,8 @@ class Canvas(QWidget):
                 for path in self.existing_paths:
                     painter.drawPath(path)
 
-
             if self.current_operation_mode == OperationMode.DRAWING_POINTS:
-                #　現在描いているパスの描画
+                # 　現在描いているパスの描画
                 if len(self.clicked_points) > 3:
                     # print(self.clickedPoints)
                     # クリックした点まで線を伸ばすため、終点を一時的にリストに入れている
@@ -378,36 +379,41 @@ class Canvas(QWidget):
                             painter.drawEllipse(self.clicked_points[i], 1, 1)
 
             elif self.current_operation_mode == OperationMode.MOVING_POINTS:
-                #すでに確定されているパスの制御点の描画
+                # すでに確定されているパスの制御点の描画
                 self.nearest_distance = 50.0
                 for path in self.existing_paths:
                     for i in range(path.elementCount()):
                         control_point = QPointF(path.elementAt(i).x, path.elementAt(i).y)
                         painter.drawEllipse(control_point, 3, 3)
 
-                        #現在のカーソル位置から最も近い点と、その点が属するpathを記録、更新
+                        # 現在のカーソル位置から最も近い点と、その点が属するpathを記録、更新
                         if not self.is_dragging:
-                            distance = math.sqrt((control_point.x() - self.cursor_position.x()) ** 2 + (control_point.y() - self.cursor_position.y()) ** 2)
+                            distance = math.sqrt((control_point.x() - self.cursor_position.x()) ** 2 + (
+                                        control_point.y() - self.cursor_position.y()) ** 2)
                             if distance < self.nearest_distance:
                                 self.nearest_distance = distance
-                                self.nearest_path     = path
-                                self.nearest_index    = i
+                                self.nearest_path = path
+                                self.nearest_index = i
 
                 # 最も近い点を赤く描画
                 if self.nearest_distance < 30:
                     painter.setPen(Qt.red)
-                    nearest_control_point = QPointF(self.nearest_path.elementAt(self.nearest_index).x, self.nearest_path.elementAt(self.nearest_index).y)
+                    nearest_control_point = QPointF(self.nearest_path.elementAt(self.nearest_index).x,
+                                                    self.nearest_path.elementAt(self.nearest_index).y)
                     print(nearest_control_point)
                     painter.drawEllipse(nearest_control_point, 3, 3)
 
     def move_point(self):
         if self.is_enable_knee_control:
-            amount_of_change = QPointF( self.cursor_position_mousePressed.x() + (self.knee_position.x() - self.knee_position_mousePressed.x())
-                                       ,self.cursor_position_mousePressed.y() - (self.knee_position.y() - self.knee_position_mousePressed.y()))
+            # 選択した制御点の移動量 = カーソルクリック位置 +
+            amount_of_change = QPointF(self.cursor_position_mousePressed.x() +
+                                       (self.knee_position.x() - self.knee_position_mousePressed.x()),
+                                       self.cursor_position_mousePressed.y() -
+                                       (self.knee_position.y() - self.knee_position_mousePressed.y()))
             self.nearest_path.setElementPositionAt(self.nearest_index, amount_of_change.x(), amount_of_change.y())
         else:
-            self.nearest_path.setElementPositionAt(self.nearest_index, self.cursor_position.x(), self.cursor_position.y())
-
+            self.nearest_path.setElementPositionAt(self.nearest_index, self.cursor_position.x(),
+                                                   self.cursor_position.y())
 
     def set_knee_position(self, x, y):
         self.knee_position.setX(x)
@@ -417,7 +423,6 @@ class Canvas(QWidget):
             if self.current_operation_mode == OperationMode.MOVING_POINTS:
                 self.move_point()
                 self.update()
-
 
     def recode_knee_and_cursor_position(self):
         self.knee_position_mousePressed.setX(self.knee_position.x())
@@ -453,6 +458,7 @@ class Canvas(QWidget):
     def set_enable_knee_control(self, is_enable_knee_control):
         self.is_enable_knee_control = is_enable_knee_control
 
+
 class TimerThread(QThread):
     updateSignal = pyqtSignal(float, float)
 
@@ -465,7 +471,6 @@ class TimerThread(QThread):
         self.kneePosition.calibrate_knee_position()
 
     def run(self):
-
         while True:
             x, y = self.kneePosition.get_position()
             # x: 2  <-> 6
@@ -476,13 +481,14 @@ class TimerThread(QThread):
         # スレッドが終了してから
         # TODO: スレッド停止後の処理
 
+
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
         self.setupUi()
         self.show()
 
-        self.active_canvas = 0                # 操作レイヤの制御
+        self.active_canvas = 0  # 操作レイヤの制御
         self.is_enabled_knee_control = False
         self.pen_color = QColorDialog()
         self.current_color_saturation = 127
@@ -542,7 +548,6 @@ class MainWindow(QMainWindow):
         self.canvasTableView.horizontalHeader().setDefaultSectionSize(290)
         self.canvasTableView.clicked.connect(self.switch_canvas)
 
-
         self.addCanvasButton = QPushButton(self.centralwidget)
         self.addCanvasButton.setGeometry(QRect(760, 330, 120, 25))
         self.addCanvasButton.setObjectName("addCanvasButton")
@@ -577,7 +582,6 @@ class MainWindow(QMainWindow):
         # self.fileReadButton.setObjectName("fileReadButton")
         # self.fileReadButton.clicked.connect(self.fileRead)
 
-
         # self.widget = QWidget(self.centralwidget)
         # self.widget.setGeometry(QRect(0, 0, 601, 511))
         # self.widget.setObjectName("widget")
@@ -587,7 +591,7 @@ class MainWindow(QMainWindow):
         self.canvas[0].setGeometry(QRect(0, 0, 600, 600))
         self.canvas[0].setObjectName("canvas0")
         palette = self.canvas[0].palette()
-        palette.setColor(QPalette.Background, QColor(255,255,255,255))
+        palette.setColor(QPalette.Background, QColor(255, 255, 255, 255))
         self.canvas[0].setPalette(palette)
         self.canvas[0].setAutoFillBackground(True)
         self.active_canvas = 0
@@ -621,7 +625,7 @@ class MainWindow(QMainWindow):
         new_canvas.setGeometry(QRect(0, 0, 600, 600))
         new_canvas.setObjectName("canvas")
         palette = new_canvas.palette()
-        palette.setColor(QPalette.Background, QColor(255,255,255,0))
+        palette.setColor(QPalette.Background, QColor(255, 255, 255, 0))
         new_canvas.setPalette(palette)
         new_canvas.setAutoFillBackground(True)
         new_canvas.operation_mode_changed(self.current_operation_mode)
@@ -630,14 +634,12 @@ class MainWindow(QMainWindow):
         self.canvas.append(new_canvas)
         self.active_canvas = len(self.canvas) - 1
 
-
         canvas_name = self.addCanvasNameTextEdit.toPlainText()
         if canvas_name == "":
             canvas_name = 'canvas[' + str(self.active_canvas) + ']'
         self.canvasNameTableModel.add_canvas(canvas_name)
         self.canvasTableView.setCurrentIndex(self.canvasNameTableModel.index(self.active_canvas, 0))
         self.canvasNameTableModel.layoutChanged.emit()
-
 
         # 使用するレイヤだけ使用可能にする
         for canvas in self.canvas:
@@ -673,7 +675,7 @@ class MainWindow(QMainWindow):
         self.canvas[self.active_canvas].setEnabled(True)
         self.canvas[self.active_canvas].operation_mode_changed(self.current_operation_mode)
 
-        #選択したレイヤと下のレイヤは見えるようにする
+        # 選択したレイヤと下のレイヤは見えるようにする
         for i in range(0, self.active_canvas + 1):
             self.canvas[i].setVisible(True)
 
@@ -681,15 +683,17 @@ class MainWindow(QMainWindow):
         for i in range(self.active_canvas + 1, len(self.canvas)):
             self.canvas[i].setVisible(False)
 
-        self.statusbar.showMessage("レイヤ「" + str(self.canvasNameTableModel.canvas_name[self.active_canvas]) + "」へ切り替わりました")
+        self.statusbar.showMessage(
+            "レイヤ「" + str(self.canvasNameTableModel.canvas_name[self.active_canvas]) + "」へ切り替わりました")
 
     def save_picture(self):
         picture = QPixmap()
-        picture = self.centralwidget.grab(QRect(0,0,600,600))
+        picture = self.centralwidget.grab(QRect(0, 0, 600, 600))
         picture.save("test.png")
 
     def file_read(self):
-        file_name, _ = QFileDialog.getOpenFileNames(self, "open file", "~/sampleImages", "Images (*.jpg *.jpeg *.png *.bmp)")
+        file_name, _ = QFileDialog.getOpenFileNames(self, "open file", "~/sampleImages",
+                                                    "Images (*.jpg *.jpeg *.png *.bmp)")
         file_name = str(file_name)
         print(file_name)
 
@@ -757,7 +761,6 @@ class MainWindow(QMainWindow):
 
         status_str = "x: " + str(x) + "y: " + str(y)
         self.statusbar.showMessage(status_str)
-
 
 
 if __name__ == '__main__':
