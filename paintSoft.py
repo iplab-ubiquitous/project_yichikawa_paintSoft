@@ -458,6 +458,7 @@ class Canvas(QWidget):
     def delete_last_path(self):
         if len(self.existing_paths) > 0:
             self.existing_paths.pop()
+            self.line_color.pop()
             self.update()
 
     def operation_mode_changed(self, to: OperationMode):
