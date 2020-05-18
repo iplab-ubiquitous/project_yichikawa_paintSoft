@@ -136,6 +136,9 @@ class KneePosition(QObject):
         new_y = (new_y - self.old_y) * ALPHA_EMA + self.old_y
         self.old_y = new_y
 
+        if new_y > self.knee_pos_y_maximum + 2:
+            new_y = 0
+
         return new_x, new_y
 
 
@@ -490,6 +493,7 @@ class MainWindow(QMainWindow):
 
         self.active_canvas = 0  # 操作レイヤの制御
         self.is_enabled_knee_control = False
+        self.is_mode_switched = False
         self.pen_color = QColorDialog()
         self.current_color_saturation = 127
         self.current_operation_mode = OperationMode.DRAWING_POINTS
@@ -739,28 +743,37 @@ class MainWindow(QMainWindow):
             self.canvas[self.active_canvas].delete_last_path()
 
     def control_params_with_knee(self, x, y):
-        if self.current_operation_mode == OperationMode.NONE:
-            pass
-
-        elif self.current_operation_mode == OperationMode.DRAWING_POINTS:
-            pass
-
-        elif self.current_operation_mode == OperationMode.MOVING_POINTS:
-            x, y = self.kneePosition.get_mapped_positions(x, y, 0, 200)
-            self.canvas[self.active_canvas].set_knee_position(x, y)
-
-        elif self.current_operation_mode == OperationMode.COLOR_PICKER:
-            x, _ = self.kneePosition.get_mapped_positions(x, y, 1, 360)
-            _, y = self.kneePosition.get_mapped_positions(x, y, 0, 255)
-            next_color = QColor()
-            next_color.setHsv(x, 255, y, 255)
-            self.pen_color.setCurrentColor(next_color)
-
+        if y == 0:
+            if not self.is_mode_switched:
+                self.statusbar.showMessage("switch")
+                self.switch_knee_operation_mode()
+                self.is_mode_switched = True
         else:
-            self.current_operation_mode = OperationMode.NONE
+            if self.current_operation_mode == OperationMode.NONE:
+                pass
 
-        status_str = "x: " + str(x) + "y: " + str(y)
-        self.statusbar.showMessage(status_str)
+            elif self.current_operation_mode == OperationMode.DRAWING_POINTS:
+                pass
+
+            elif self.current_operation_mode == OperationMode.MOVING_POINTS:
+                x, y = self.kneePosition.get_mapped_positions(x, y, 0, 200)
+                self.canvas[self.active_canvas].set_knee_position(x, y)
+
+            elif self.current_operation_mode == OperationMode.COLOR_PICKER:
+                x, _ = self.kneePosition.get_mapped_positions(x, y, 1, 360)
+                _, y = self.kneePosition.get_mapped_positions(x, y, 0, 255)
+                next_color = QColor()
+                next_color.setHsv(x, 255, y, 255)
+                self.pen_color.setCurrentColor(next_color)
+
+            else:
+                self.current_operation_mode = OperationMode.NONE
+
+            if self.is_mode_switched:
+                self.is_mode_switched = False
+
+            status_str = "x: " + str(x) + "y: " + str(y)
+            self.statusbar.showMessage(status_str)
 
 
 if __name__ == '__main__':
