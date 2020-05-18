@@ -270,6 +270,9 @@ class Canvas(QWidget):
         self.knee_position_mousePressed = QPointF()
         self.current_operation_mode = OperationMode.DRAWING_POINTS
 
+        self.line_color = []
+        self.current_line_color = QColor()
+
         self.nearest_path = QPainterPath()
         self.nearest_distance = 30.0
         self.nearest_index = 0
@@ -318,12 +321,6 @@ class Canvas(QWidget):
         elif self.current_operation_mode == OperationMode.MOVING_POINTS:
             self.is_dragging = False
 
-    def dragMoveEvent(self, event: QDragMoveEvent):
-        print("drag moving")
-
-    def dragLeaveEvent(self, event: QDragLeaveEvent):
-        print("drag leave")
-
     def paintEvent(self, event: QPaintEvent):
         painter = QPainter(self)
 
@@ -346,44 +343,53 @@ class Canvas(QWidget):
             label.show()
 
         else:
-            painter.setPen(Qt.black)
             # すでに確定されているパスの描画
             if len(self.existing_paths) > 0:
-                for path in self.existing_paths:
-                    painter.drawPath(path)
+                for i in range(len(self.existing_paths)):
+                    painter.setPen(self.line_color[i])
+                    painter.drawPath(self.existing_paths[i])
 
             if self.current_operation_mode == OperationMode.DRAWING_POINTS:
                 # 　現在描いているパスの描画
                 if len(self.clicked_points) > 3:
+                    painter.setPen(self.current_line_color)
                     # print(self.clickedPoints)
                     # クリックした点まで線を伸ばすため、終点を一時的にリストに入れている
                     self.clicked_points.append(self.clicked_points[len(self.clicked_points) - 1])
                     painter_path = self.rounded_polygon.get_path(self.clicked_points)
 
+                    # 設置した点の描画
+                    painter.setPen(Qt.black)
                     for i in range(len(self.clicked_points)):
-                        painter.drawEllipse(self.clicked_points[i], 1, 1)
-
+                        painter.drawEllipse(self.clicked_points[i], 2, 2)
+                    painter.setPen(self.current_line_color)
+                    # 現在のマウス位置での予告線
                     if self.is_line_prediction:
                         self.clicked_points.pop()
                         self.is_line_prediction = False
                     painter.drawPath(painter_path)
                     self.clicked_points.pop()
 
+                # 線が描けない時
                 else:
+                    # 現在のマウス位置での予告線
                     if self.is_line_prediction:
                         painter.setPen(Qt.red)
                         for i in range(len(self.clicked_points)):
-                            painter.drawEllipse(self.clicked_points[i], 1, 1)
+                            painter.drawEllipse(self.clicked_points[i], 2, 2)
                         self.clicked_points.pop()
                         self.is_line_prediction = False
 
+                    # 予告線でもない場合は単に点を書く
                     else:
                         for i in range(len(self.clicked_points)):
-                            painter.drawEllipse(self.clicked_points[i], 1, 1)
+                            painter.drawEllipse(self.clicked_points[i], 2, 2)
 
+            # 制御点を移動するとき
             elif self.current_operation_mode == OperationMode.MOVING_POINTS:
                 # すでに確定されているパスの制御点の描画
                 self.nearest_distance = 50.0
+                painter.setPen(Qt.black)
                 for path in self.existing_paths:
                     for i in range(path.elementCount()):
                         control_point = QPointF(path.elementAt(i).x, path.elementAt(i).y)
@@ -440,7 +446,12 @@ class Canvas(QWidget):
         if len(self.clicked_points) > 0:
             self.clicked_points.append(self.clicked_points[len(self.clicked_points) - 1])
             painter_path = self.rounded_polygon.get_path(self.clicked_points)
+
+            #線と色を記録
             self.existing_paths.append(painter_path)
+            self.line_color.append(self.current_line_color)
+
+            #点をリセット
             self.clicked_points = []
             self.update()
 
@@ -710,6 +721,7 @@ class MainWindow(QMainWindow):
         picked_color = self.pen_color.getColor(Qt.black)
         # print(pickedColor.hsvSaturation())
         # self.currentColorSaturation = pickedColor.hsvSaturation()
+        self.canvas[self.active_canvas].current_line_color = picked_color
         self.statusbar.showMessage(str(picked_color))
 
     # TODO: モードと操作の接続
