@@ -17,8 +17,8 @@ ALPHA_EMA = 0.7
 class OperationMode(Enum):
     NONE           = 0
     DRAWING_POINTS = 1
-    SWITCH_LAYER   = 2
-    MOVING_POINTS  = 3
+    MOVING_POINTS  = 2
+    SWITCH_LAYER   = 3
     COLOR_PICKER   = 4
 
 
@@ -414,16 +414,21 @@ class Canvas(QWidget):
                     painter.drawEllipse(nearest_control_point, 3, 3)
 
     def move_point(self):
+        self.nearest_path.setElementPositionAt(self.nearest_index, self.cursor_position.x(),
+                                               self.cursor_position.y())
         if self.is_enable_knee_control:
             # 選択した制御点の移動量 = カーソルクリック位置 +
-            amount_of_change = QPointF(self.cursor_position_mousePressed.x() +
+            # amount_of_change = QPointF(self.cursor_position_mousePressed.x() +
+            #                            (self.knee_position.x() - self.knee_position_mousePressed.x()),
+            #                            self.cursor_position_mousePressed.y() -　　
+            #                            (self.knee_position.y() - self.knee_position_mousePressed.y()))
+            amount_of_change = QPointF(self.cursor_position.x() +
                                        (self.knee_position.x() - self.knee_position_mousePressed.x()),
-                                       self.cursor_position_mousePressed.y() -
+                                       self.cursor_position.y() -
                                        (self.knee_position.y() - self.knee_position_mousePressed.y()))
             self.nearest_path.setElementPositionAt(self.nearest_index, amount_of_change.x(), amount_of_change.y())
-        else:
-            self.nearest_path.setElementPositionAt(self.nearest_index, self.cursor_position.x(),
-                                                   self.cursor_position.y())
+
+
 
     def set_knee_position(self, x, y):
         self.knee_position.setX(x)
@@ -563,7 +568,7 @@ class MainWindow(QMainWindow):
         self.canvasTableView.setObjectName("canvasTableView")
         self.canvasTableView.setSelectionMode(QAbstractItemView.SingleSelection)
         self.canvasTableView.horizontalHeader().setDefaultSectionSize(290)
-        self.canvasTableView.clicked.connect(self.switch_canvas)
+        self.canvasTableView.clicked.connect(self.switch_canvas_from_table)
 
         self.addCanvasButton = QPushButton(self.centralwidget)
         self.addCanvasButton.setGeometry(QRect(760, 330, 120, 25))
@@ -646,7 +651,7 @@ class MainWindow(QMainWindow):
         new_canvas.setPalette(palette)
         new_canvas.setAutoFillBackground(True)
         new_canvas.operation_mode_changed(self.current_operation_mode)
-        new_canvas.is_enable_knee_control(self.is_enabled_knee_control)
+        new_canvas.is_enable_knee_control = self.is_enabled_knee_control
 
         self.canvas.append(new_canvas)
         self.active_canvas = len(self.canvas) - 1
@@ -682,8 +687,29 @@ class MainWindow(QMainWindow):
                 canvas.setEnabled(False)
             self.canvas[self.active_canvas].setEnabled(True)
 
-    def switch_canvas(self, index_clicked: QModelIndex):
+    def switch_canvas_from_table(self, index_clicked: QModelIndex):
         self.active_canvas = index_clicked.row()
+
+        self.canvasTableView.setCurrentIndex(self.canvasNameTableModel.index(self.active_canvas, 0))
+        # 使用するレイヤだけ使用可能にする
+        for canvas in self.canvas:
+            canvas.setEnabled(False)
+        self.canvas[self.active_canvas].setEnabled(True)
+        self.canvas[self.active_canvas].operation_mode_changed(self.current_operation_mode)
+
+        # 選択したレイヤと下のレイヤは見えるようにする
+        for i in range(0, self.active_canvas + 1):
+            self.canvas[i].setVisible(True)
+
+        # 選択したレイヤより上のレイヤは見えないようにする
+        for i in range(self.active_canvas + 1, len(self.canvas)):
+            self.canvas[i].setVisible(False)
+
+        self.statusbar.showMessage(
+            "レイヤ「" + str(self.canvasNameTableModel.canvas_name[self.active_canvas]) + "」へ切り替わりました")
+
+    def switch_canvas_from_index(self, index: int):
+        self.active_canvas = index
 
         self.canvasTableView.setCurrentIndex(self.canvasNameTableModel.index(self.active_canvas, 0))
         # 使用するレイヤだけ使用可能にする
@@ -777,10 +803,13 @@ class MainWindow(QMainWindow):
                 self.canvas[self.active_canvas].set_knee_position(x, y)
 
             elif self.current_operation_mode == OperationMode.SWITCH_LAYER:
-                pass
+                x, _ = self.kneePosition.get_mapped_positions(x, y, 1, 359)
+                target_number = (int)(x / (360/self.canvasNameTableModel.rowCount()))
+                if not self.active_canvas == target_number:
+                    self.switch_canvas_from_index(target_number)
 
             elif self.current_operation_mode == OperationMode.COLOR_PICKER:
-                x, _ = self.kneePosition.get_mapped_positions(x, y, 1, 360)
+                x, _ = self.kneePosition.get_mapped_positions(x, y, 1, 359)
                 _, y = self.kneePosition.get_mapped_positions(x, y, 0, 255)
                 next_color = QColor()
                 next_color.setHsv(x, 255, y, 255)
