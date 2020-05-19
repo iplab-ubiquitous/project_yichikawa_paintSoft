@@ -17,8 +17,9 @@ ALPHA_EMA = 0.7
 class OperationMode(Enum):
     NONE           = 0
     DRAWING_POINTS = 1
-    MOVING_POINTS  = 2
-    COLOR_PICKER   = 3
+    SWITCH_LAYER   = 2
+    MOVING_POINTS  = 3
+    COLOR_PICKER   = 4
 
 
 class KneePosition(QObject):
@@ -735,6 +736,9 @@ class MainWindow(QMainWindow):
             self.current_operation_mode = OperationMode.MOVING_POINTS
 
         elif self.current_operation_mode == OperationMode.MOVING_POINTS:
+            self.current_operation_mode = OperationMode.SWITCH_LAYER
+
+        elif self.current_operation_mode == OperationMode.SWITCH_LAYER:
             self.current_operation_mode = OperationMode.COLOR_PICKER
 
         elif self.current_operation_mode == OperationMode.COLOR_PICKER:
@@ -771,6 +775,9 @@ class MainWindow(QMainWindow):
             elif self.current_operation_mode == OperationMode.MOVING_POINTS:
                 x, y = self.kneePosition.get_mapped_positions(x, y, 0, 200)
                 self.canvas[self.active_canvas].set_knee_position(x, y)
+
+            elif self.current_operation_mode == OperationMode.SWITCH_LAYER:
+                pass
 
             elif self.current_operation_mode == OperationMode.COLOR_PICKER:
                 x, _ = self.kneePosition.get_mapped_positions(x, y, 1, 360)
