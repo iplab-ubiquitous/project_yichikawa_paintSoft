@@ -269,7 +269,7 @@ class Canvas(QWidget):
         self.cursor_position_mousePressed = QPointF()
         self.knee_position = QPointF()
         self.knee_position_mousePressed = QPointF()
-        self.current_operation_mode = OperationMode.DRAWING_POINTS
+        self.current_drawing_mode = OperationMode.DRAWING_POINTS
 
         self.line_color = []
         self.current_line_color = QColor()
@@ -283,7 +283,7 @@ class Canvas(QWidget):
 
     def mousePressEvent(self, event: QMouseEvent):
 
-        if self.current_operation_mode == OperationMode.DRAWING_POINTS:
+        if self.current_drawing_mode == OperationMode.DRAWING_POINTS:
             # 制御点の追加
             if event.button() == Qt.LeftButton:
                 self.clicked_points.append(event.pos())
@@ -294,7 +294,7 @@ class Canvas(QWidget):
                 self.clicked_points.pop()
             self.update()
 
-        elif self.current_operation_mode == OperationMode.MOVING_POINTS:
+        elif self.current_drawing_mode == OperationMode.MOVING_POINTS:
             if event.button() == Qt.LeftButton:
                 self.is_dragging = True
                 if self.is_enable_knee_control:
@@ -304,22 +304,22 @@ class Canvas(QWidget):
                 self.update()
 
     def mouseMoveEvent(self, event: QMouseEvent):
-        if self.current_operation_mode == OperationMode.DRAWING_POINTS:
+        if self.current_drawing_mode == OperationMode.DRAWING_POINTS:
             self.clicked_points.append(event.pos())
             self.is_line_prediction = True
             self.update()
 
-        elif self.current_operation_mode == OperationMode.MOVING_POINTS:
+        elif self.current_drawing_mode == OperationMode.MOVING_POINTS:
             self.cursor_position = event.pos()
             if self.is_dragging:
                 self.move_point()
             self.update()
 
     def mouseReleaseEvent(self, event: QMouseEvent):
-        if self.current_operation_mode == OperationMode.DRAWING_POINTS:
+        if self.current_drawing_mode == OperationMode.DRAWING_POINTS:
             pass
 
-        elif self.current_operation_mode == OperationMode.MOVING_POINTS:
+        elif self.current_drawing_mode == OperationMode.MOVING_POINTS:
             self.is_dragging = False
 
     def paintEvent(self, event: QPaintEvent):
@@ -350,7 +350,7 @@ class Canvas(QWidget):
                     painter.setPen(self.line_color[i])
                     painter.drawPath(self.existing_paths[i])
 
-            if self.current_operation_mode == OperationMode.DRAWING_POINTS:
+            if self.current_drawing_mode == OperationMode.DRAWING_POINTS:
                 # 　現在描いているパスの描画
                 if len(self.clicked_points) > 3:
                     painter.setPen(self.current_line_color)
@@ -387,7 +387,7 @@ class Canvas(QWidget):
                             painter.drawEllipse(self.clicked_points[i], 2, 2)
 
             # 制御点を移動するとき
-            elif self.current_operation_mode == OperationMode.MOVING_POINTS:
+            elif self.current_drawing_mode == OperationMode.MOVING_POINTS:
                 # すでに確定されているパスの制御点の描画
                 self.nearest_distance = 50.0
                 painter.setPen(Qt.black)
@@ -435,7 +435,7 @@ class Canvas(QWidget):
         self.knee_position.setY(y)
 
         if self.is_dragging:
-            if self.current_operation_mode == OperationMode.MOVING_POINTS:
+            if self.current_drawing_mode == OperationMode.MOVING_POINTS:
                 self.move_point()
                 self.update()
 
@@ -468,7 +468,7 @@ class Canvas(QWidget):
             self.update()
 
     def operation_mode_changed(self, to: OperationMode):
-        self.current_operation_mode = to
+        self.current_drawing_mode = to
         self.fix_path()
 
     def set_picture_file_name(self, picture_file_name: str):
@@ -512,9 +512,10 @@ class MainWindow(QMainWindow):
         self.active_canvas = 0  # 操作レイヤの制御
         self.is_enabled_knee_control = False
         self.is_mode_switched = False
+        self.current_drawing_mode = OperationMode.DRAWING_POINTS
         self.pen_color = QColorDialog()
         self.current_color_saturation = 127
-        self.current_operation_mode = OperationMode.DRAWING_POINTS
+        self.current_knee_operation_mode = OperationMode.NONE
         # self.timerThread = QThread()
 
         try:
@@ -523,11 +524,14 @@ class MainWindow(QMainWindow):
             self.timer_thread.start()
             self.kneePosition = self.timer_thread.kneePosition
             self.is_enabled_knee_control = True
+            self.current_knee_operation_mode = OperationMode.DRAWING_POINTS
 
         except serial.serialutil.SerialException as e:
             self.statusbar.showMessage("膝操作が無効：シリアル通信が確保できていません。原因：" + str(e))
 
         self.canvas[0].set_enable_knee_control(self.is_enabled_knee_control)
+
+        self.colorPickerToolButton.setStyleSheet("background-color: black")
 
     def setupUi(self):
         self.setObjectName("self")
@@ -593,11 +597,12 @@ class MainWindow(QMainWindow):
         self.colorPickerToolButton.setGeometry(QRect(810, 530, 71, 22))
         self.colorPickerToolButton.setObjectName("colorPickerToolButton")
         self.colorPickerToolButton.clicked.connect(self.pick_color)
+        self.colorPickerToolButton.setAutoFillBackground(True)
 
         self.selectOperationModeButton = QPushButton(self.centralwidget)
         self.selectOperationModeButton.setGeometry(QRect(610, 80, 71, 31))
         self.selectOperationModeButton.setObjectName("selectOperationModeButton")
-        self.selectOperationModeButton.clicked.connect(self.switch_knee_operation_mode)
+        self.selectOperationModeButton.clicked.connect(self.switch_drawing_mode)
 
         # self.fileReadButton = QPushButton(self.centralwidget)
         # self.fileReadButton.setGeometry(QRect(740, 50, 140, 35))
@@ -650,7 +655,7 @@ class MainWindow(QMainWindow):
         palette.setColor(QPalette.Background, QColor(255, 255, 255, 0))
         new_canvas.setPalette(palette)
         new_canvas.setAutoFillBackground(True)
-        new_canvas.operation_mode_changed(self.current_operation_mode)
+        new_canvas.operation_mode_changed(self.current_knee_operation_mode)
         new_canvas.is_enable_knee_control = self.is_enabled_knee_control
 
         self.canvas.append(new_canvas)
@@ -695,7 +700,7 @@ class MainWindow(QMainWindow):
         for canvas in self.canvas:
             canvas.setEnabled(False)
         self.canvas[self.active_canvas].setEnabled(True)
-        self.canvas[self.active_canvas].operation_mode_changed(self.current_operation_mode)
+        self.canvas[self.active_canvas].operation_mode_changed(self.current_knee_operation_mode)
 
         # 選択したレイヤと下のレイヤは見えるようにする
         for i in range(0, self.active_canvas + 1):
@@ -716,7 +721,7 @@ class MainWindow(QMainWindow):
         for canvas in self.canvas:
             canvas.setEnabled(False)
         self.canvas[self.active_canvas].setEnabled(True)
-        self.canvas[self.active_canvas].operation_mode_changed(self.current_operation_mode)
+        self.canvas[self.active_canvas].operation_mode_changed(self.current_knee_operation_mode)
 
         # 選択したレイヤと下のレイヤは見えるようにする
         for i in range(0, self.active_canvas + 1):
@@ -746,36 +751,64 @@ class MainWindow(QMainWindow):
             self.statusbar.showMessage("画像の読み込みに失敗しました")
 
     def pick_color(self):
-        picked_color = self.pen_color.getColor(Qt.black)
+        picked_color = self.pen_color.getColor(self.canvas[self.active_canvas].current_line_color)
         # print(pickedColor.hsvSaturation())
         # self.currentColorSaturation = pickedColor.hsvSaturation()
         self.canvas[self.active_canvas].current_line_color = picked_color
-        self.statusbar.showMessage(str(picked_color))
 
-    # TODO: モードと操作の接続
+        color_string = "background-color: rgb({},{},{})".format(picked_color.red(),
+                                                                picked_color.green(),
+                                                                picked_color.blue())
+        self.colorPickerToolButton.setStyleSheet(color_string)
+
+    def switch_drawing_mode(self):
+        if self.current_drawing_mode == OperationMode.DRAWING_POINTS:
+            self.current_drawing_mode = OperationMode.MOVING_POINTS
+
+        elif self.current_drawing_mode == OperationMode.MOVING_POINTS:
+            self.current_drawing_mode = OperationMode.DRAWING_POINTS
+        else:
+            self.current_drawing_mode = OperationMode.NONE
+
+        self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode)
+        self.selectOperationModeButton.setText("{}".format(self.current_drawing_mode.name))
+
+        # 膝操作が有効の時は膝操作のモードも合わせる
+        if self.is_enabled_knee_control:
+            if self.current_drawing_mode == OperationMode.DRAWING_POINTS:
+                self.current_knee_operation_mode = OperationMode.DRAWING_POINTS
+
+            elif self.current_drawing_mode == OperationMode.MOVING_POINTS:
+                self.current_knee_operation_mode = OperationMode.MOVING_POINTS
+            else:
+                self.current_drawing_mode = OperationMode.NONE
+
     def switch_knee_operation_mode(self):
-        # TODO: NONEは消す（多分）
-        if self.current_operation_mode == OperationMode.NONE:
-            self.current_operation_mode = OperationMode.DRAWING_POINTS
+        if self.current_knee_operation_mode == OperationMode.NONE:
+            self.current_knee_operation_mode = OperationMode.DRAWING_POINTS
+            self.current_drawing_mode        = OperationMode.DRAWING_POINTS
 
-        elif self.current_operation_mode == OperationMode.DRAWING_POINTS:
-            self.current_operation_mode = OperationMode.MOVING_POINTS
+        elif self.current_knee_operation_mode == OperationMode.DRAWING_POINTS:
+            self.current_knee_operation_mode = OperationMode.MOVING_POINTS
+            self.current_drawing_mode        = OperationMode.MOVING_POINTS
 
-        elif self.current_operation_mode == OperationMode.MOVING_POINTS:
-            self.current_operation_mode = OperationMode.SWITCH_LAYER
+        elif self.current_knee_operation_mode == OperationMode.MOVING_POINTS:
+            self.current_knee_operation_mode = OperationMode.SWITCH_LAYER
+            self.current_drawing_mode        = OperationMode.DRAWING_POINTS
 
-        elif self.current_operation_mode == OperationMode.SWITCH_LAYER:
-            self.current_operation_mode = OperationMode.COLOR_PICKER
+        elif self.current_knee_operation_mode == OperationMode.SWITCH_LAYER:
+            self.current_knee_operation_mode = OperationMode.COLOR_PICKER
+            self.current_drawing_mode        = OperationMode.DRAWING_POINTS
 
-        elif self.current_operation_mode == OperationMode.COLOR_PICKER:
-            self.current_operation_mode = OperationMode.DRAWING_POINTS
+        elif self.current_knee_operation_mode == OperationMode.COLOR_PICKER:
+            self.current_knee_operation_mode = OperationMode.DRAWING_POINTS
+            self.current_drawing_mode        = OperationMode.DRAWING_POINTS
 
         else:
-            self.current_operation_mode = OperationMode.NONE
+            self.current_knee_operation_mode = OperationMode.NONE
 
-        self.selectOperationModeButton.setText("Mode:{}".format(self.current_operation_mode.value))
-        self.statusbar.showMessage("Mode:{}".format(self.current_operation_mode.value))
-        self.canvas[self.active_canvas].operation_mode_changed(self.current_operation_mode)
+        # self.statusbar.showMessage("Mode:{}".format(self.current_knee_operation_mode.value))
+        self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode)
 
     def keyPressEvent(self, keyEvent):
         # print(keyEvent.key())
@@ -792,23 +825,23 @@ class MainWindow(QMainWindow):
                 self.switch_knee_operation_mode()
                 self.is_mode_switched = True
         else:
-            if self.current_operation_mode == OperationMode.NONE:
+            if self.current_knee_operation_mode == OperationMode.NONE:
                 pass
 
-            elif self.current_operation_mode == OperationMode.DRAWING_POINTS:
+            elif self.current_knee_operation_mode == OperationMode.DRAWING_POINTS:
                 pass
 
-            elif self.current_operation_mode == OperationMode.MOVING_POINTS:
+            elif self.current_knee_operation_mode == OperationMode.MOVING_POINTS:
                 x, y = self.kneePosition.get_mapped_positions(x, y, 0, 200)
                 self.canvas[self.active_canvas].set_knee_position(x, y)
 
-            elif self.current_operation_mode == OperationMode.SWITCH_LAYER:
+            elif self.current_knee_operation_mode == OperationMode.SWITCH_LAYER:
                 x, _ = self.kneePosition.get_mapped_positions(x, y, 1, 359)
                 target_number = (int)(x / (360/self.canvasNameTableModel.rowCount()))
                 if not self.active_canvas == target_number:
                     self.switch_canvas_from_index(target_number)
 
-            elif self.current_operation_mode == OperationMode.COLOR_PICKER:
+            elif self.current_knee_operation_mode == OperationMode.COLOR_PICKER:
                 x, _ = self.kneePosition.get_mapped_positions(x, y, 1, 359)
                 _, y = self.kneePosition.get_mapped_positions(x, y, 0, 255)
                 next_color = QColor()
@@ -816,7 +849,7 @@ class MainWindow(QMainWindow):
                 self.pen_color.setCurrentColor(next_color)
 
             else:
-                self.current_operation_mode = OperationMode.NONE
+                self.current_knee_operation_mode = OperationMode.NONE
 
             if self.is_mode_switched:
                 self.is_mode_switched = False
