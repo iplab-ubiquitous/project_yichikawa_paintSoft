@@ -418,11 +418,11 @@ class Canvas(QWidget):
         #                            (self.knee_position.x() - self.knee_position_mousePressed.x()),
         #                            self.cursor_position_mousePressed.y() -　　
         #                            (self.knee_position.y() - self.knee_position_mousePressed.y()))
-        amount_of_change = QPointF(self.cursor_position.x() +
-                                   (self.knee_position.x() - self.knee_position_mousePressed.x()),
-                                   self.cursor_position.y() -
-                                   (self.knee_position.y() - self.knee_position_mousePressed.y()))
-        self.nearest_path.setElementPositionAt(self.nearest_index, amount_of_change.x(), amount_of_change.y())
+            amount_of_change = QPointF(self.cursor_position.x() +
+                                       (self.knee_position.x() - self.knee_position_mousePressed.x()),
+                                       self.cursor_position.y() -
+                                       (self.knee_position.y() - self.knee_position_mousePressed.y()))
+            self.nearest_path.setElementPositionAt(self.nearest_index, amount_of_change.x(), amount_of_change.y())
 
         else:
             if self.nearest_distance < 20:
