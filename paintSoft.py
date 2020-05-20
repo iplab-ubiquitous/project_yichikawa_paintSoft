@@ -316,11 +316,7 @@ class Canvas(QWidget):
             self.update()
 
     def mouseReleaseEvent(self, event: QMouseEvent):
-        if self.current_drawing_mode == OperationMode.DRAWING_POINTS:
-            pass
-
-        elif self.current_drawing_mode == OperationMode.MOVING_POINTS:
-            self.is_dragging = False
+        self.is_dragging = False
 
     def paintEvent(self, event: QPaintEvent):
         painter = QPainter(self)
@@ -600,7 +596,7 @@ class MainWindow(QMainWindow):
         self.colorPickerToolButton.setAutoFillBackground(True)
 
         self.selectOperationModeButton = QPushButton(self.centralwidget)
-        self.selectOperationModeButton.setGeometry(QRect(610, 80, 71, 31))
+        self.selectOperationModeButton.setGeometry(QRect(600, 80, 140, 40))
         self.selectOperationModeButton.setObjectName("selectOperationModeButton")
         self.selectOperationModeButton.clicked.connect(self.switch_drawing_mode)
 
@@ -644,7 +640,7 @@ class MainWindow(QMainWindow):
         self.deleteCanvasButton.setText(_translate("MainWindow", "レイヤを削除"))
         self.savePictureButton.setText(_translate("MainWindow", "内容を保存(SS)"))
         # self.fileReadButton.setText(_translate("MainWindow", "ファイルを読込む"))
-        self.selectOperationModeButton.setText(_translate("MainWindow", "Mode:1"))
+        self.selectOperationModeButton.setText(_translate("MainWindow", "DRAWING_POINTS"))
         QMetaObject.connectSlotsByName(self)
 
     def add_canvas(self):
@@ -772,6 +768,7 @@ class MainWindow(QMainWindow):
 
         self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode)
         self.selectOperationModeButton.setText("{}".format(self.current_drawing_mode.name))
+        self.statusbar.showMessage("Mode:{}".format(self.current_drawing_mode.name))
 
         # 膝操作が有効の時は膝操作のモードも合わせる
         if self.is_enabled_knee_control:
@@ -807,7 +804,7 @@ class MainWindow(QMainWindow):
         else:
             self.current_knee_operation_mode = OperationMode.NONE
 
-        # self.statusbar.showMessage("Mode:{}".format(self.current_knee_operation_mode.value))
+        self.statusbar.showMessage("Mode:{}".format(self.current_knee_operation_mode.value))
         self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode)
 
     def keyPressEvent(self, keyEvent):

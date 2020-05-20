@@ -65,7 +65,7 @@ class Ui_MainWindow(object):
         self.colorPickerToolButton.setGeometry(QtCore.QRect(810, 530, 71, 22))
         self.colorPickerToolButton.setObjectName("colorPickerToolButton")
         self.selectModeButton = QtWidgets.QPushButton(self.centralwidget)
-        self.selectModeButton.setGeometry(QtCore.QRect(610, 80, 71, 31))
+        self.selectModeButton.setGeometry(QtCore.QRect(610, 70, 121, 41))
         self.selectModeButton.setObjectName("selectModeButton")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
