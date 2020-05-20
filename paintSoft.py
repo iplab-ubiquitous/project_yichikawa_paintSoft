@@ -529,7 +529,7 @@ class MainWindow(QMainWindow):
             self.statusbar.showMessage("膝操作が無効：シリアル通信が確保できていません。原因：" + str(e))
 
         self.canvas[0].set_enable_knee_control(self.is_enabled_knee_control)
-        self.displayKneeOperationModeTextLabel.setText("Knee mode: {}".format(self.current_knee_operation_mode))
+        self.displayKneeOperationModeTextLabel.setText("Knee mode: \n {}".format(self.current_knee_operation_mode))
 
         self.colorPickerToolButton.setStyleSheet("background-color: black")
 
@@ -605,7 +605,7 @@ class MainWindow(QMainWindow):
         self.selectOperationModeButton.clicked.connect(self.switch_drawing_mode)
 
         self.displayKneeOperationModeTextLabel = QLabel(self.centralwidget)
-        self.displayKneeOperationModeTextLabel.setGeometry(QRect(610, 10, 271, 20))
+        self.displayKneeOperationModeTextLabel.setGeometry(QRect(610, 10, 270, 40))
         self.displayKneeOperationModeTextLabel.setObjectName("displayKneeOperationModeTextLabel")
 
         # self.fileReadButton = QPushButton(self.centralwidget)
@@ -787,7 +787,7 @@ class MainWindow(QMainWindow):
 
         self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode)
         self.selectOperationModeButton.setText("{}".format(self.current_drawing_mode.name))
-        self.displayKneeOperationModeTextLabel.setText("Knee mode: {}".format(self.current_knee_operation_mode))
+        self.displayKneeOperationModeTextLabel.setText("Knee mode: \n {}".format(self.current_knee_operation_mode))
         self.statusbar.showMessage("Mode:{}".format(self.current_drawing_mode.name))
 
     def switch_knee_operation_mode(self):
@@ -816,7 +816,7 @@ class MainWindow(QMainWindow):
 
         self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode)
         self.selectOperationModeButton.setText("{}".format(self.current_drawing_mode.name))
-        self.displayKneeOperationModeTextLabel.setText("Knee mode: {}".format(self.current_knee_operation_mode))
+        self.displayKneeOperationModeTextLabel.setText("Knee mode: \n {}".format(self.current_knee_operation_mode))
         self.statusbar.showMessage("Mode:{}".format(self.current_drawing_mode.name))
 
     def keyPressEvent(self, keyEvent):

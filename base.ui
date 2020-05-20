@@ -109,6 +109,9 @@
       <height>31</height>
      </rect>
     </property>
+    <property name="lineWidth">
+     <number>2</number>
+    </property>
    </widget>
    <widget class="QTableView" name="tableView">
     <property name="geometry">
@@ -118,6 +121,9 @@
       <width>281</width>
       <height>192</height>
      </rect>
+    </property>
+    <property name="lineWidth">
+     <number>2</number>
     </property>
     <attribute name="horizontalHeaderCascadingSectionResizes">
      <bool>true</bool>
@@ -197,11 +203,17 @@
       <x>610</x>
       <y>10</y>
       <width>271</width>
-      <height>20</height>
+      <height>41</height>
      </rect>
     </property>
+    <property name="lineWidth">
+     <number>2</number>
+    </property>
     <property name="text">
-     <string>Knee mode:NONE</string>
+     <string>Knee mode: NONE</string>
+    </property>
+    <property name="textFormat">
+     <enum>Qt::PlainText</enum>
     </property>
    </widget>
   </widget>
