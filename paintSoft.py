@@ -275,8 +275,8 @@ class Canvas(QWidget):
         self.current_line_color = QColor()
 
         self.nearest_path = QPainterPath()
-        self.nearest_distance = 30.0
-        self.nearest_index = 0
+        self.nearest_distance = 50.0
+        self.nearest_index = -1
         self.is_dragging = False
 
         self.show()
@@ -393,38 +393,41 @@ class Canvas(QWidget):
                         painter.drawEllipse(control_point, 3, 3)
 
                         # 現在のカーソル位置から最も近い点と、その点が属するpathを記録、更新
-                        if not self.is_dragging:
-                            distance = math.sqrt((control_point.x() - self.cursor_position.x()) ** 2 + (
-                                        control_point.y() - self.cursor_position.y()) ** 2)
-                            if distance < self.nearest_distance:
-                                self.nearest_distance = distance
-                                self.nearest_path = path
-                                self.nearest_index = i
+                        # if not self.is_dragging & self.is_enable_knee_control:
+                        distance = math.sqrt((control_point.x() - self.cursor_position.x()) ** 2 + (
+                                    control_point.y() - self.cursor_position.y()) ** 2)
+                        if distance < self.nearest_distance:
+                            self.nearest_distance = distance
+                            self.nearest_path = path
+                            self.nearest_index = i
 
-                # 最も近い点を赤く描画
-                if self.nearest_distance < 30:
+                # 一定の距離未満かつ最も近い点を赤く描画
+                if self.nearest_distance < 20:
                     painter.setPen(Qt.red)
                     nearest_control_point = QPointF(self.nearest_path.elementAt(self.nearest_index).x,
                                                     self.nearest_path.elementAt(self.nearest_index).y)
-                    print(nearest_control_point)
                     painter.drawEllipse(nearest_control_point, 3, 3)
+                print("dist:{}".format(self.nearest_distance))
 
     def move_point(self):
-        self.nearest_path.setElementPositionAt(self.nearest_index, self.cursor_position.x(),
-                                               self.cursor_position.y())
         if self.is_enable_knee_control:
-            # 選択した制御点の移動量 = カーソルクリック位置 +
-            # amount_of_change = QPointF(self.cursor_position_mousePressed.x() +
-            #                            (self.knee_position.x() - self.knee_position_mousePressed.x()),
-            #                            self.cursor_position_mousePressed.y() -　　
-            #                            (self.knee_position.y() - self.knee_position_mousePressed.y()))
-            amount_of_change = QPointF(self.cursor_position.x() +
-                                       (self.knee_position.x() - self.knee_position_mousePressed.x()),
-                                       self.cursor_position.y() -
-                                       (self.knee_position.y() - self.knee_position_mousePressed.y()))
-            self.nearest_path.setElementPositionAt(self.nearest_index, amount_of_change.x(), amount_of_change.y())
+            self.nearest_path.setElementPositionAt(self.nearest_index, self.cursor_position.x(),
+                                                   self.cursor_position.y())
+        # 選択した制御点の移動量 = カーソルクリック位置 +
+        # amount_of_change = QPointF(self.cursor_position_mousePressed.x() +
+        #                            (self.knee_position.x() - self.knee_position_mousePressed.x()),
+        #                            self.cursor_position_mousePressed.y() -　　
+        #                            (self.knee_position.y() - self.knee_position_mousePressed.y()))
+        amount_of_change = QPointF(self.cursor_position.x() +
+                                   (self.knee_position.x() - self.knee_position_mousePressed.x()),
+                                   self.cursor_position.y() -
+                                   (self.knee_position.y() - self.knee_position_mousePressed.y()))
+        self.nearest_path.setElementPositionAt(self.nearest_index, amount_of_change.x(), amount_of_change.y())
 
-
+        else:
+            if self.nearest_distance < 20:
+                self.nearest_path.setElementPositionAt(self.nearest_index, self.cursor_position.x(),
+                                                       self.cursor_position.y())
 
     def set_knee_position(self, x, y):
         self.knee_position.setX(x)
