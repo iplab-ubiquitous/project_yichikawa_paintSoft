@@ -67,6 +67,9 @@ class Ui_MainWindow(object):
         self.selectModeButton = QtWidgets.QPushButton(self.centralwidget)
         self.selectModeButton.setGeometry(QtCore.QRect(610, 70, 121, 41))
         self.selectModeButton.setObjectName("selectModeButton")
+        self.displayKneeOperationModeTextLabel = QtWidgets.QLabel(self.centralwidget)
+        self.displayKneeOperationModeTextLabel.setGeometry(QtCore.QRect(610, 10, 271, 20))
+        self.displayKneeOperationModeTextLabel.setObjectName("displayKneeOperationModeTextLabel")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 889, 22))
@@ -88,4 +91,5 @@ class Ui_MainWindow(object):
         self.fileReadButton.setText(_translate("MainWindow", "ファイルを読込む"))
         self.colorPickerToolButton.setText(_translate("MainWindow", "カラーピッカー"))
         self.selectModeButton.setText(_translate("MainWindow", "Mode:0"))
+        self.displayKneeOperationModeTextLabel.setText(_translate("MainWindow", "Knee mode:NONE"))
 

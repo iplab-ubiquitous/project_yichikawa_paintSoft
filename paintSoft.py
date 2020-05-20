@@ -529,6 +529,7 @@ class MainWindow(QMainWindow):
             self.statusbar.showMessage("膝操作が無効：シリアル通信が確保できていません。原因：" + str(e))
 
         self.canvas[0].set_enable_knee_control(self.is_enabled_knee_control)
+        self.displayKneeOperationModeTextLabel.setText("Knee mode: {}".format(self.current_knee_operation_mode))
 
         self.colorPickerToolButton.setStyleSheet("background-color: black")
 
@@ -603,6 +604,10 @@ class MainWindow(QMainWindow):
         self.selectOperationModeButton.setObjectName("selectOperationModeButton")
         self.selectOperationModeButton.clicked.connect(self.switch_drawing_mode)
 
+        self.displayKneeOperationModeTextLabel = QLabel(self.centralwidget)
+        self.displayKneeOperationModeTextLabel.setGeometry(QRect(610, 10, 271, 20))
+        self.displayKneeOperationModeTextLabel.setObjectName("displayKneeOperationModeTextLabel")
+
         # self.fileReadButton = QPushButton(self.centralwidget)
         # self.fileReadButton.setGeometry(QRect(740, 50, 140, 35))
         # self.fileReadButton.setObjectName("fileReadButton")
@@ -644,6 +649,7 @@ class MainWindow(QMainWindow):
         self.savePictureButton.setText(_translate("MainWindow", "内容を保存(SS)"))
         # self.fileReadButton.setText(_translate("MainWindow", "ファイルを読込む"))
         self.selectOperationModeButton.setText(_translate("MainWindow", "DRAWING_POINTS"))
+        self.displayKneeOperationModeTextLabel.setText(_translate("MainWindow", "Knee mode:NONE"))
         QMetaObject.connectSlotsByName(self)
 
     def add_canvas(self):
@@ -769,10 +775,6 @@ class MainWindow(QMainWindow):
         else:
             self.current_drawing_mode = OperationMode.NONE
 
-        self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode)
-        self.selectOperationModeButton.setText("{}".format(self.current_drawing_mode.name))
-        self.statusbar.showMessage("Mode:{}".format(self.current_drawing_mode.name))
-
         # 膝操作が有効の時は膝操作のモードも合わせる
         if self.is_enabled_knee_control:
             if self.current_drawing_mode == OperationMode.DRAWING_POINTS:
@@ -782,6 +784,11 @@ class MainWindow(QMainWindow):
                 self.current_knee_operation_mode = OperationMode.MOVING_POINTS
             else:
                 self.current_drawing_mode = OperationMode.NONE
+
+        self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode)
+        self.selectOperationModeButton.setText("{}".format(self.current_drawing_mode.name))
+        self.displayKneeOperationModeTextLabel.setText("Knee mode: {}".format(self.current_knee_operation_mode))
+        self.statusbar.showMessage("Mode:{}".format(self.current_drawing_mode.name))
 
     def switch_knee_operation_mode(self):
         if self.current_knee_operation_mode == OperationMode.NONE:
@@ -807,8 +814,10 @@ class MainWindow(QMainWindow):
         else:
             self.current_knee_operation_mode = OperationMode.NONE
 
-        self.statusbar.showMessage("Mode:{}".format(self.current_knee_operation_mode.value))
         self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode)
+        self.selectOperationModeButton.setText("{}".format(self.current_drawing_mode.name))
+        self.displayKneeOperationModeTextLabel.setText("Knee mode: {}".format(self.current_knee_operation_mode))
+        self.statusbar.showMessage("Mode:{}".format(self.current_drawing_mode.name))
 
     def keyPressEvent(self, keyEvent):
         # print(keyEvent.key())

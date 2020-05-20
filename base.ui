@@ -191,6 +191,19 @@
      <string>Mode:0</string>
     </property>
    </widget>
+   <widget class="QLabel" name="displayKneeOperationModeTextLabel">
+    <property name="geometry">
+     <rect>
+      <x>610</x>
+      <y>10</y>
+      <width>271</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Knee mode:NONE</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
