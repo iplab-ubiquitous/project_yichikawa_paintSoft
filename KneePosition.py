@@ -1,5 +1,6 @@
 import serial
 import numpy as np
+from PyQt5.QtCore import QThread, pyqtSignal
 
 NUM_OF_SENSORS = 10
 WAITING_FRAMES = 100
@@ -123,3 +124,25 @@ class KneePosition():
             new_y = 0
 
         return new_x, new_y
+
+class TimerThread(QThread):
+    updateSignal = pyqtSignal(float, float)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.kneePosition = KneePosition()  # 膝の座標を取得するためのクラス
+        print("Success Establish Connection.")
+
+        self.kneePosition.calibrate_knee_position()
+
+    def run(self):
+        while True:
+            x, y = self.kneePosition.get_position()
+            # x: 2  <-> 6
+            # y: 46 <-> 48 <-> 53
+            self.updateSignal.emit(x, y)
+            self.msleep(10)
+
+        # スレッドが終了してから
+        # TODO: スレッド停止後の処理

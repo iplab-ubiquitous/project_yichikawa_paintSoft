@@ -355,29 +355,6 @@ class Canvas(QWidget):
         self.is_enable_knee_control = is_enable_knee_control
 
 
-class TimerThread(QThread):
-    updateSignal = pyqtSignal(float, float)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-
-        self.kneePosition = KneePosition.KneePosition()  # 膝の座標を取得するためのクラス
-        print("Success Establish Connection.")
-
-        self.kneePosition.calibrate_knee_position()
-
-    def run(self):
-        while True:
-            x, y = self.kneePosition.get_position()
-            # x: 2  <-> 6
-            # y: 46 <-> 48 <-> 53
-            self.updateSignal.emit(x, y)
-            self.msleep(10)
-
-        # スレッドが終了してから
-        # TODO: スレッド停止後の処理
-
-
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
@@ -394,7 +371,7 @@ class MainWindow(QMainWindow):
         # self.timerThread = QThread()
 
         try:
-            self.timer_thread = TimerThread()
+            self.timer_thread = KneePosition.TimerThread()
             self.timer_thread.updateSignal.connect(self.control_params_with_knee)
             self.timer_thread.start()
             self.kneePosition = self.timer_thread.kneePosition
