@@ -101,7 +101,7 @@ class MainWindow(QMainWindow):
     def record_frame(self):
         if self.is_started_experiment:
             current_time   = time.time()  - self.start_time
-            current_offset = abs(self.current_knee_step - self.rect_orders[self.current_order % steps])
+            current_offset = self.current_knee_step - self.rect_orders[self.current_order % steps]
             self.frame_records = np.append(self.frame_records, np.array(
                                                 [[self.current_position.x(),
                                                  self.current_position.y(),
@@ -114,7 +114,7 @@ class MainWindow(QMainWindow):
         current_time = time.time() - self.start_time
 
         operation_times = current_time - self.previous_operated_time
-        offsets         = abs(self.current_knee_step - self.rect_orders[self.current_order])
+        offsets         = self.current_knee_step - self.rect_orders[self.current_order]
 
         self.operation_records = np.append(self.operation_records, np.array(
                                             [[self.current_position.x(),
