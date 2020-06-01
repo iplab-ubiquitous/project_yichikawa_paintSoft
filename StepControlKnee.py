@@ -1,3 +1,4 @@
+import os
 import sys, serial, random, time
 import numpy as np
 
@@ -8,6 +9,8 @@ from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QMenuBar, QStatu
 import KneePosition
 
 steps = 5
+participant_No = 0
+
 
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
@@ -18,6 +21,7 @@ class MainWindow(QMainWindow):
         self.target_step = 5
         self.current_order = 0
         self.is_horizontal = False
+        self.is_current_step_visible = True
         self.setup_experiment()
         self.calibration_position = QPointF(0, 0)
 
@@ -59,6 +63,10 @@ class MainWindow(QMainWindow):
         save_records_action.setShortcut(QKeySequence("Ctrl+S"))
         save_records_action.triggered.connect(self.save_records)
 
+        switch_current_step_visible_action = QAction("現在のステップを表示/非表示切り替え", self)
+        switch_current_step_visible_action.setShortcut(QKeySequence("Ctrl+V"))
+        switch_current_step_visible_action.triggered.connect(self.switch_current_step_visible)
+
         operation_menus = self.menubar.addMenu("experiments")
         operation_menus.addAction(start_experiment_action)
         operation_menus.addAction(save_records_action)
@@ -91,22 +99,30 @@ class MainWindow(QMainWindow):
 
         self.is_started_experiment = False
 
-        self.operation_records = np.empty((0, 4), float) # フレーム（膝位置が更新される）ごとの記録
-        self.frame_records     = np.empty((0, 4), float) # 操作ごとの記録
+        self.frame_records     = np.empty((0, 3), float) # 操作ごとの記録
+        self.operation_records = np.empty((0, 5), float) # フレーム（膝位置が更新される）ごとの記録
 
     def start_experiment(self):
         self.start_time            = time.time()
         self.is_started_experiment = True
 
+        self.statusbar.showMessage("Experiment started p{}, {}, steps_{}, step_{}"
+                                       .format(participant_No,
+                                        ("horizontal" if self.is_horizontal
+                                        else "vertical"),
+                                        steps,
+                                        ("visible" if self.is_current_step_visible
+                                        else "invisible")
+                                        )
+                                   )
+
     def record_frame(self):
         if self.is_started_experiment:
             current_time   = time.time()  - self.start_time
-            current_offset = self.current_knee_step - self.rect_orders[self.current_order % steps]
             self.frame_records = np.append(self.frame_records, np.array(
                                                 [[self.current_position.x(),
                                                  self.current_position.y(),
-                                                 current_time,
-                                                 current_offset]]
+                                                 current_time]]
                                           ), axis=0)
             print(current_time)
 
@@ -120,7 +136,8 @@ class MainWindow(QMainWindow):
                                             [[self.current_position.x(),
                                              self.current_position.y(),
                                              operation_times,
-                                             offsets]]
+                                             self.current_knee_step,
+                                             self.rect_orders[self.current_order]]]
                                       ), axis=0)
         self.previous_operated_time = current_time
         self.statusbar.showMessage(str(current_time))
@@ -128,15 +145,32 @@ class MainWindow(QMainWindow):
     def save_records(self):
         if not self.is_started_experiment:
             print(self.frame_records)
+            file_path = "result_preliminary/p{}/{}/steps_{}/step_{}".format(participant_No,
+                                                                     ("horizontal" if self.is_horizontal
+                                                                                      else "vertical"),
+                                                                     steps,
+                                                                     ("visible" if self.is_current_step_visible
+                                                                                      else "invisible")
+                                                                    )
+            try:
+                os.makedirs(file_path)
+            except FileExistsError:
+                pass
 
-            np.savetxt("test_frameRecords.csv", self.frame_records, delimiter=',',
-                       fmt=['%.5f', '%.5f', '%.5f', '%.0f'],
-                       header='knee_pos_x, knee_pos_y, time, offset',
+            np.savetxt(file_path + "test_frameRecords.csv", self.frame_records, delimiter=',',
+                       fmt=['%.5f', '%.5f', '%.5f'],
+                       header='knee_pos_x, knee_pos_y, time',
                        comments=' ')
-            np.savetxt("test_operationRecords.csv", self.operation_records, delimiter=',',
-                       fmt=['%.5f', '%.5f', '%.5f', '%.0f'],
-                       header='knee_pos_x, knee_pos_y, time, offset',
+            np.savetxt(file_path + "test_operationRecords.csv", self.operation_records, delimiter=',',
+                       fmt=['%.5f', '%.5f', '%.5f', '%.0f', '%.0f'],
+                       header="knee_pos_x, knee_pos_y, time, selected_No, target_No, calibration x:{} y:{}"
+                                .format(self.kneePosition.knee_pos_x_center, self.kneePosition.knee_pos_y_center),
                        comments=' ')
+            self.statusbar.showMessage("Saved.")
+
+    def switch_current_step_visible(self):
+        if not self.is_started_experiment:
+            self.is_current_step_visible = not self.is_current_step_visible
 
     def control_params_with_knee(self, x, y):
         self.current_position.setX(x)
@@ -159,7 +193,7 @@ class MainWindow(QMainWindow):
                 self.current_order = self.current_order + 1
 
                 if self.current_order >= steps:
-                    print("End")
+                    self.statusbar.showMessage("End. Save data with Cmd+S.")
                     self.is_started_experiment = False
                     self.current_order = 0
 
@@ -177,8 +211,9 @@ class MainWindow(QMainWindow):
         painter.drawRect(self.rectangles[self.rect_orders[self.current_order % steps]])
 
         # 現在の段階
-        painter.setBrush(Qt.blue)
-        painter.drawRect(self.rectangles[self.current_knee_step])
+        if self.is_current_step_visible:
+            painter.setBrush(Qt.blue)
+            painter.drawRect(self.rectangles[self.current_knee_step])
 
 
 if __name__ == '__main__':

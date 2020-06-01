@@ -167,8 +167,9 @@ class Canvas(QWidget):
 
             # 直前の制御点の消去
             if event.button() == Qt.RightButton:
-                self.clicked_points.pop()
-            self.update()
+                if len(self.clicked_points) > 0:
+                    self.clicked_points.pop()
+                self.update()
 
         elif self.current_drawing_mode == OperationMode.MOVING_POINTS:
             if event.button() == Qt.LeftButton:
