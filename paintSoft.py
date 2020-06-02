@@ -1,4 +1,7 @@
+import os
 import sys, math, serial
+import time
+
 import KneePosition
 from PyQt5.QtCore import Qt, QPoint, QPointF, QRect, QSize, QMetaObject, QCoreApplication, QAbstractTableModel, \
     QModelIndex, QTimer, QThread, QObject, pyqtSignal
@@ -9,6 +12,8 @@ from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QSl
 import PyQt5.sip
 import numpy as np
 from enum import Enum
+
+participant_No = 0
 
 
 class OperationMode(Enum):
@@ -400,27 +405,6 @@ class MainWindow(QMainWindow):
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout.setObjectName("verticalLayout")
 
-        self.horizontalSlider = QSlider(self.verticalLayoutWidget)
-        self.horizontalSlider.setEnabled(True)
-        self.horizontalSlider.setMaximumSize(QSize(256, 22))
-        self.horizontalSlider.setOrientation(Qt.Horizontal)
-        self.horizontalSlider.setObjectName("horizontalSlider")
-        self.verticalLayout.addWidget(self.horizontalSlider)
-
-        self.horizontalSlider_2 = QSlider(self.verticalLayoutWidget)
-        self.horizontalSlider_2.setEnabled(True)
-        self.horizontalSlider_2.setMaximumSize(QSize(256, 22))
-        self.horizontalSlider_2.setOrientation(Qt.Horizontal)
-        self.horizontalSlider_2.setObjectName("horizontalSlider_2")
-        self.verticalLayout.addWidget(self.horizontalSlider_2)
-
-        self.horizontalSlider_3 = QSlider(self.verticalLayoutWidget)
-        self.horizontalSlider_3.setEnabled(True)
-        self.horizontalSlider_3.setMaximumSize(QSize(256, 22))
-        self.horizontalSlider_3.setOrientation(Qt.Horizontal)
-        self.horizontalSlider_3.setObjectName("horizontalSlider_3")
-        self.verticalLayout.addWidget(self.horizontalSlider_3)
-
         self.canvasTableView = QTableView(self.centralwidget)
         self.canvasTableView.setGeometry(QRect(600, 170, 290, 150))
         self.canvasTableView.setObjectName("canvasTableView")
@@ -680,6 +664,71 @@ class MainWindow(QMainWindow):
 
         if keyEvent.key() == Qt.Key_Backspace:
             self.canvas[self.active_canvas].delete_last_path()
+
+    def setup_experiment(self):
+        # 取得する指標
+        
+
+        # タイマー
+        self.start_time = 0
+        self.previous_operated_time = 0
+
+        self.is_started_experiment = False
+
+        self.frame_records = np.empty((0, 3), float)  # 操作ごとの記録
+        self.operation_records = np.empty((0, 5), float)  # フレーム（膝位置が更新される）ごとの記録
+
+    def start_experiment(self):
+        self.start_time = time.time()
+        self.is_started_experiment = True
+
+        self.statusbar.showMessage("Experiment started p{}"
+                                   .format(participant_No)
+                                   )
+
+    def record_frame(self):
+        if self.is_started_experiment:
+            current_time = time.time() - self.start_time
+            self.frame_records = np.append(self.frame_records, np.array(
+                [[self.current_position.x(),
+                  self.current_position.y(),
+                  current_time]]
+            ), axis=0)
+
+    def record_operation(self):
+        current_time = time.time() - self.start_time
+
+        operation_times = current_time - self.previous_operated_time
+        offsets = self.current_knee_step - self.rect_orders[self.current_order]
+
+        self.operation_records = np.append(self.operation_records, np.array(
+            [[self.current_position.x(),
+              self.current_position.y(),
+              operation_times,
+              self.current_knee_step,
+              self.rect_orders[self.current_order]]]
+        ), axis=0)
+        self.previous_operated_time = current_time
+        self.statusbar.showMessage(str(current_time))
+
+    def save_records(self):
+        if not self.is_started_experiment:
+            file_path = "result_paint_experiment/p{}/data/".format(participant_No)
+            try:
+                os.makedirs(file_path)
+            except FileExistsError:
+                pass
+
+            np.savetxt(file_path + "test_frameRecords.csv", self.frame_records, delimiter=',',
+                       fmt=['%.5f', '%.5f', '%.5f'],
+                       header='knee_pos_x, knee_pos_y, time',
+                       comments=' ')
+            np.savetxt(file_path + "test_operationRecords.csv", self.operation_records, delimiter=',',
+                       fmt=['%.5f', '%.5f', '%.5f', '%.0f', '%.0f'],
+                       header="knee_pos_x, knee_pos_y, time, selected_No, target_No, calibration x:{} y:{}"
+                       .format(self.kneePosition.knee_pos_x_center, self.kneePosition.knee_pos_y_center),
+                       comments=' ')
+            self.statusbar.showMessage("Saved.")
 
     def control_params_with_knee(self, x, y):
         if y == 0:

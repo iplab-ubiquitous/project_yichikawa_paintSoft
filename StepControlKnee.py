@@ -124,7 +124,6 @@ class MainWindow(QMainWindow):
                                                  self.current_position.y(),
                                                  current_time]]
                                           ), axis=0)
-            print(current_time)
 
     def record_operation(self):
         current_time = time.time() - self.start_time
@@ -144,7 +143,6 @@ class MainWindow(QMainWindow):
 
     def save_records(self):
         if not self.is_started_experiment:
-            print(self.frame_records)
             file_path = "result_preliminary/p{}/{}/steps_{}/step_{}".format(participant_No,
                                                                      ("horizontal" if self.is_horizontal
                                                                                       else "vertical"),
