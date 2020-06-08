@@ -497,11 +497,11 @@ class MainWindow(QMainWindow):
         new_canvas.setGeometry(QRect(0, 0, 600, 600))
         new_canvas.setObjectName("canvas")
         palette = new_canvas.palette()
-        palette.setColor(QPalette.Background, QColor(255, 255, 255, 0))
+        palette.setColor(QPalette.Background, QColor(255, 255, 255, 150))
         new_canvas.setPalette(palette)
         new_canvas.setAutoFillBackground(True)
-        new_canvas.operation_mode_changed(self.current_knee_operation_mode)
         new_canvas.is_enable_knee_control = self.is_enabled_knee_control
+        new_canvas.operation_mode_changed(self.current_drawing_mode)
 
         self.canvas.append(new_canvas)
         self.active_canvas = len(self.canvas) - 1
@@ -545,7 +545,7 @@ class MainWindow(QMainWindow):
         for canvas in self.canvas:
             canvas.setEnabled(False)
         self.canvas[self.active_canvas].setEnabled(True)
-        self.canvas[self.active_canvas].operation_mode_changed(self.current_knee_operation_mode)
+        self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode)
 
         # 選択したレイヤと下のレイヤは見えるようにする
         for i in range(0, self.active_canvas + 1):
