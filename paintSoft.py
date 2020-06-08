@@ -135,6 +135,7 @@ class Canvas(QWidget):
         # 1度Trueになったら2度とFalseにならないことを意図する
         self.is_picture_canvas = False
         self.picture_file_name = ""
+        self.image = QImage()
 
         # マウストラック有効化
         self.setMouseTracking(True)
@@ -204,22 +205,7 @@ class Canvas(QWidget):
         painter = QPainter(self)
 
         if self.is_picture_canvas:
-            self.setAutoFillBackground(False)
-            image = QPixmap(self.picture_file_name)
-            size = image.size()
-            offset_x = 0
-            offset_y = 0
-
-            if size.width() < 300:
-                offset_x = size.width() / 2
-
-            if size.height() < 300:
-                offset_y = size.height() / 2
-
-            self.setWindowFlags(Qt.Window)
-            label = QLabel(self)
-            label.setPixmap(image)
-            label.show()
+             painter.drawImage(QRect(0, 0, 600, 600),self.image)
 
         else:
             # すでに確定されているパスの描画
@@ -360,6 +346,12 @@ class Canvas(QWidget):
     def set_enable_knee_control(self, is_enable_knee_control):
         self.is_enable_knee_control = is_enable_knee_control
 
+    def load_picture(self, image: QImage):
+        self.image = image
+        self.is_picture_canvas = True
+        self.update()
+
+
 
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
@@ -427,7 +419,7 @@ class MainWindow(QMainWindow):
         self.addCanvasNameTextEdit.setObjectName("addCanvasNameTextEdit")
 
         self.savePictureButton = QPushButton(self.centralwidget)
-        self.savePictureButton.setGeometry(QRect(740, 80, 140, 35))
+        self.savePictureButton.setGeometry(QRect(750, 460, 140, 35))
         self.savePictureButton.setObjectName("savePictureButton")
         self.savePictureButton.clicked.connect(self.save_picture)
 
@@ -446,10 +438,20 @@ class MainWindow(QMainWindow):
         self.displayKneeOperationModeTextLabel.setGeometry(QRect(610, 10, 270, 40))
         self.displayKneeOperationModeTextLabel.setObjectName("displayKneeOperationModeTextLabel")
 
-        # self.fileReadButton = QPushButton(self.centralwidget)
-        # self.fileReadButton.setGeometry(QRect(740, 50, 140, 35))
-        # self.fileReadButton.setObjectName("fileReadButton")
-        # self.fileReadButton.clicked.connect(self.fileRead)
+        self.readFileNametextEdit = QTextEdit(self.centralwidget)
+        self.readFileNametextEdit.setGeometry(QRect(610, 420, 140, 30))
+        self.readFileNametextEdit.setLineWidth(2)
+        self.readFileNametextEdit.setObjectName("readFileNametextEdit")
+
+        self.saveFileNametextEdit = QTextEdit(self.centralwidget)
+        self.saveFileNametextEdit.setGeometry(QRect(610, 460, 140, 30))
+        self.saveFileNametextEdit.setLineWidth(2)
+        self.saveFileNametextEdit.setObjectName("saveFileNametextEdit")
+
+        self.fileReadButton = QPushButton(self.centralwidget)
+        self.fileReadButton.setGeometry(QRect(750, 420, 140, 35))
+        self.fileReadButton.setObjectName("fileReadButton")
+        self.fileReadButton.clicked.connect(self.file_read)
 
         # self.widget = QWidget(self.centralwidget)
         # self.widget.setGeometry(QRect(0, 0, 601, 511))
@@ -485,7 +487,7 @@ class MainWindow(QMainWindow):
         self.addCanvasButton.setText(_translate("MainWindow", "レイヤを追加"))
         self.deleteCanvasButton.setText(_translate("MainWindow", "レイヤを削除"))
         self.savePictureButton.setText(_translate("MainWindow", "内容を保存(SS)"))
-        # self.fileReadButton.setText(_translate("MainWindow", "ファイルを読込む"))
+        self.fileReadButton.setText(_translate("MainWindow", "ファイルを読込む"))
         self.selectOperationModeButton.setText(_translate("MainWindow", "DRAWING_POINTS"))
         self.displayKneeOperationModeTextLabel.setText(_translate("MainWindow", "Knee mode:NONE"))
         QMetaObject.connectSlotsByName(self)
@@ -583,15 +585,12 @@ class MainWindow(QMainWindow):
         picture.save("test.png")
 
     def file_read(self):
-        file_name, _ = QFileDialog.getOpenFileNames(self, "open file", "~/sampleImages",
-                                                    "Images (*.jpg *.jpeg *.png *.bmp)")
-        file_name = str(file_name)
-        print(file_name)
-
-        if file_name:
-            self.canvas[self.active_canvas].set_picture_file_name(file_name)
-        else:
-            self.statusbar.showMessage("画像の読み込みに失敗しました")
+        file_name = "test.png"
+        if not self.readFileNametextEdit.toPlainText() == "":
+            file_name = "sampleImages/" + self.readFileNametextEdit.toPlainText()
+        image = QImage(file_name)
+        self.canvas[self.active_canvas].load_picture(image)
+        self.statusbar.showMessage("picture")
 
     def pick_color(self):
         picked_color = self.pen_color.getColor(self.canvas[self.active_canvas].current_line_color)
@@ -667,7 +666,7 @@ class MainWindow(QMainWindow):
 
     def setup_experiment(self):
         # 取得する指標
-        
+
 
         # タイマー
         self.start_time = 0
