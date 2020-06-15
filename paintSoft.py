@@ -587,7 +587,7 @@ class MainWindow(QMainWindow):
     def file_read(self):
         file_name = "test.png"
         if not self.readFileNametextEdit.toPlainText() == "":
-            file_name = "sampleImages/" + self.readFileNametextEdit.toPlainText()
+            file_name = "sampleImages/" + self.readFileNametextEdit.toPlainText() + ".png"
         image = QImage(file_name)
         self.canvas[self.active_canvas].load_picture(image)
         self.statusbar.showMessage("picture")

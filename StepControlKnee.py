@@ -1,5 +1,5 @@
 import os
-import sys, serial, random, time
+import sys, serial, random, time, datetime
 import numpy as np
 
 from PyQt5.QtCore import QRect, Qt, QPointF
@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QMenuBar, QStatu
 
 import KneePosition
 
-steps = 5
+steps = 20
 participant_No = 0
 
 
@@ -20,9 +20,8 @@ class MainWindow(QMainWindow):
         self.current_knee_step = 0
         self.target_step = 5
         self.current_order = 0
-        self.is_horizontal = False
+        self.is_horizontal = True
         self.is_current_step_visible = True
-        self.setup_experiment()
         self.calibration_position = QPointF(0, 0)
 
         try:
@@ -36,8 +35,9 @@ class MainWindow(QMainWindow):
             self.statusbar.showMessage("膝操作が無効：シリアル通信が確保できていません。原因：" + str(e))
 
         self.rectangles = []
-        self.rect_orders = random.sample(range(steps), steps)
+        self.rect_orders = []
         self.setup_rect(steps)
+        self.setup_experiment()
 
     def setupUi(self):
         self.setObjectName("self")
@@ -88,9 +88,24 @@ class MainWindow(QMainWindow):
                 self.rectangles.append(QRect(540, 50 + rect_height * i, 100, rect_height))
 
     def setup_experiment(self):
+        # UIのsetup
+        self.rect_orders = []
+        if steps == 5:
+            for i in range(4):
+                self.rect_orders += random.sample(range(steps), steps)
+        elif steps == 10:
+            for i in range(2):
+                self.rect_orders += random.sample(range(steps), steps)
+        elif steps == 15:
+            self.rect_orders += random.sample(range(steps), steps)
+            tmp_orders = random.sample(range(steps), steps)
+            self.rect_orders += tmp_orders[0:5]
+        elif steps == 20:
+            self.rect_orders += random.sample(range(steps), steps)
+
         # 取得する指標
-        self.operation_times      = np.empty(steps, dtype=float)
-        self.offsets              = np.empty(steps, dtype=int)
+        self.operation_times      = np.empty((steps * 3), dtype=float)
+        self.offsets              = np.empty((steps * 3), dtype=int)
         self.current_position     = QPointF(0, 0)
 
         # タイマー
@@ -142,6 +157,7 @@ class MainWindow(QMainWindow):
         self.statusbar.showMessage(str(current_time))
 
     def save_records(self):
+        date = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         if not self.is_started_experiment:
             file_path = "result_preliminary/p{}/{}/steps_{}/step_{}".format(participant_No,
                                                                      ("horizontal" if self.is_horizontal
@@ -155,11 +171,11 @@ class MainWindow(QMainWindow):
             except FileExistsError:
                 pass
 
-            np.savetxt(file_path + "test_frameRecords.csv", self.frame_records, delimiter=',',
+            np.savetxt(file_path + "test_frameRecords_{}.csv".format(date), self.frame_records, delimiter=',',
                        fmt=['%.5f', '%.5f', '%.5f'],
                        header='knee_pos_x, knee_pos_y, time',
                        comments=' ')
-            np.savetxt(file_path + "test_operationRecords.csv", self.operation_records, delimiter=',',
+            np.savetxt(file_path + "test_operationRecords_{}.csv".format(date), self.operation_records, delimiter=',',
                        fmt=['%.5f', '%.5f', '%.5f', '%.0f', '%.0f'],
                        header="knee_pos_x, knee_pos_y, time, selected_No, target_No, calibration x:{} y:{}"
                                 .format(self.kneePosition.knee_pos_x_center, self.kneePosition.knee_pos_y_center),
@@ -190,7 +206,7 @@ class MainWindow(QMainWindow):
                 self.record_operation()
                 self.current_order = self.current_order + 1
 
-                if self.current_order >= steps:
+                if self.current_order >= 20:
                     self.statusbar.showMessage("End. Save data with Cmd+S.")
                     self.is_started_experiment = False
                     self.current_order = 0
@@ -206,7 +222,7 @@ class MainWindow(QMainWindow):
 
         # ターゲットの段階
         painter.setBrush(Qt.green)
-        painter.drawRect(self.rectangles[self.rect_orders[self.current_order % steps]])
+        painter.drawRect(self.rectangles[self.rect_orders[self.current_order % 20]])
 
         # 現在の段階
         if self.is_current_step_visible:
