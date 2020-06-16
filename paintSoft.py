@@ -1,3 +1,4 @@
+import datetime
 import os
 import sys, math, serial
 import time
@@ -712,17 +713,18 @@ class MainWindow(QMainWindow):
 
     def save_records(self):
         if not self.is_started_experiment:
+            date = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             file_path = "result_paint_experiment/p{}/data/".format(participant_No)
             try:
                 os.makedirs(file_path)
             except FileExistsError:
                 pass
 
-            np.savetxt(file_path + "test_frameRecords.csv", self.frame_records, delimiter=',',
+            np.savetxt(file_path + "test_frameRecords_{}.csv".format(date), self.frame_records, delimiter=',',
                        fmt=['%.5f', '%.5f', '%.5f'],
                        header='knee_pos_x, knee_pos_y, time',
                        comments=' ')
-            np.savetxt(file_path + "test_operationRecords.csv", self.operation_records, delimiter=',',
+            np.savetxt(file_path + "test_operationRecords_{}.csv".format(date), self.operation_records, delimiter=',',
                        fmt=['%.5f', '%.5f', '%.5f', '%.0f', '%.0f'],
                        header="knee_pos_x, knee_pos_y, time, selected_No, target_No, calibration x:{} y:{}"
                        .format(self.kneePosition.knee_pos_x_center, self.kneePosition.knee_pos_y_center),
