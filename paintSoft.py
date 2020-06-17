@@ -9,7 +9,7 @@ from PyQt5.QtCore import Qt, QPoint, QPointF, QRect, QSize, QMetaObject, QCoreAp
 from PyQt5.QtGui import QPainter, QPainterPath, QPolygon, QMouseEvent, QImage, qRgb, QPalette, QColor, QPaintEvent, \
     QPixmap, QDragLeaveEvent, QDragMoveEvent
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QSlider, QTableView, QMenuBar, QStatusBar, \
-    QPushButton, QTextEdit, QAbstractItemView, QFileDialog, QLabel, QToolButton, QColorDialog
+    QPushButton, QTextEdit, QAbstractItemView, QFileDialog, QLabel, QToolButton, QColorDialog, QRadioButton
 import PyQt5.sip
 import numpy as np
 from enum import Enum
@@ -406,21 +406,21 @@ class MainWindow(QMainWindow):
         self.canvasTableView.clicked.connect(self.switch_canvas_from_table)
 
         self.addCanvasButton = QPushButton(self.centralwidget)
-        self.addCanvasButton.setGeometry(QRect(760, 330, 120, 25))
+        self.addCanvasButton.setGeometry(QRect(760, 320, 120, 25))
         self.addCanvasButton.setObjectName("addCanvasButton")
         self.addCanvasButton.clicked.connect(self.add_canvas)
 
         self.deleteCanvasButton = QPushButton(self.centralwidget)
-        self.deleteCanvasButton.setGeometry(QRect(760, 360, 120, 25))
+        self.deleteCanvasButton.setGeometry(QRect(760, 350, 120, 25))
         self.deleteCanvasButton.setObjectName("deleteCanvasButton")
         self.deleteCanvasButton.clicked.connect(self.delete_canvas)
 
         self.addCanvasNameTextEdit = QTextEdit(self.centralwidget)
-        self.addCanvasNameTextEdit.setGeometry(QRect(610, 345, 140, 25))
+        self.addCanvasNameTextEdit.setGeometry(QRect(610, 340, 140, 25))
         self.addCanvasNameTextEdit.setObjectName("addCanvasNameTextEdit")
 
         self.savePictureButton = QPushButton(self.centralwidget)
-        self.savePictureButton.setGeometry(QRect(750, 460, 140, 35))
+        self.savePictureButton.setGeometry(QRect(750, 480, 140, 35))
         self.savePictureButton.setObjectName("savePictureButton")
         self.savePictureButton.clicked.connect(self.save_picture)
 
@@ -440,19 +440,32 @@ class MainWindow(QMainWindow):
         self.displayKneeOperationModeTextLabel.setObjectName("displayKneeOperationModeTextLabel")
 
         self.readFileNametextEdit = QTextEdit(self.centralwidget)
-        self.readFileNametextEdit.setGeometry(QRect(610, 420, 140, 30))
+        self.readFileNametextEdit.setGeometry(QRect(610, 440, 140, 30))
         self.readFileNametextEdit.setLineWidth(2)
         self.readFileNametextEdit.setObjectName("readFileNametextEdit")
 
         self.saveFileNametextEdit = QTextEdit(self.centralwidget)
-        self.saveFileNametextEdit.setGeometry(QRect(610, 460, 140, 30))
+        self.saveFileNametextEdit.setGeometry(QRect(610, 480, 140, 30))
         self.saveFileNametextEdit.setLineWidth(2)
         self.saveFileNametextEdit.setObjectName("saveFileNametextEdit")
 
         self.fileReadButton = QPushButton(self.centralwidget)
-        self.fileReadButton.setGeometry(QRect(750, 420, 140, 35))
+        self.fileReadButton.setGeometry(QRect(750, 440, 140, 35))
         self.fileReadButton.setObjectName("fileReadButton")
         self.fileReadButton.clicked.connect(self.file_read)
+
+        self.opacitySlider = QSlider(self.centralwidget)
+        self.opacitySlider.setGeometry(QRect(610, 380, 141, 22))
+        self.opacitySlider.setOrientation(Qt.Horizontal)
+        self.opacitySlider.setObjectName("opacitySlider")
+
+        self.opacityLabel = QLabel(self.centralwidget)
+        self.opacityLabel.setGeometry(QRect(770, 385, 81, 16))
+        self.opacityLabel.setObjectName("label")
+
+        self.IsAllCanvasInvisibleradioButton = QRadioButton(self.centralwidget)
+        self.IsAllCanvasInvisibleradioButton.setGeometry(QRect(670, 410, 171, 20))
+        self.IsAllCanvasInvisibleradioButton.setObjectName("IsAllCanvasInvisibleradioButton")
 
         # self.widget = QWidget(self.centralwidget)
         # self.widget.setGeometry(QRect(0, 0, 601, 511))
@@ -491,6 +504,8 @@ class MainWindow(QMainWindow):
         self.fileReadButton.setText(_translate("MainWindow", "ファイルを読込む"))
         self.selectOperationModeButton.setText(_translate("MainWindow", "DRAWING_POINTS"))
         self.displayKneeOperationModeTextLabel.setText(_translate("MainWindow", "Knee mode:NONE"))
+        self.opacityLabel.setText(_translate("MainWindow", "レイヤ透明度"))
+        self.IsAllCanvasInvisibleradioButton.setText(_translate("MainWindow", "全レイヤを不透明にする"))
         QMetaObject.connectSlotsByName(self)
 
     def add_canvas(self):
