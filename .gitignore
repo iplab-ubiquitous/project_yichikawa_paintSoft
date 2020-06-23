@@ -4,3 +4,4 @@ venv/*
 *.png
 KneePosition.cpython-36.pyc
 *.csv
+*.xlsx

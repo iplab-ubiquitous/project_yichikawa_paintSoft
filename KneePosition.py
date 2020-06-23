@@ -9,7 +9,7 @@ ALPHA_EMA = 0.7
 class KneePosition():
 
     def __init__(self):
-        self.distance_sensor_array_communication = serial.Serial('/dev/cu.usbmodem141201', 460800)
+        self.distance_sensor_array_communication = serial.Serial('/dev/cu.usbmodem142201', 460800)
         for i in range(10):
             self.distance_sensor_array_communication.readline()  # 読み飛ばし(欠けたデータが読み込まれるのを避ける)
 

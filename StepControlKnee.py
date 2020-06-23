@@ -8,8 +8,8 @@ from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QMenuBar, QStatu
 
 import KneePosition
 
-steps = 20
-participant_No = 0
+steps = 5
+participant_No = 3
 
 
 class MainWindow(QMainWindow):
@@ -20,7 +20,7 @@ class MainWindow(QMainWindow):
         self.current_knee_step = 0
         self.target_step = 5
         self.current_order = 0
-        self.is_horizontal = True
+        self.is_horizontal = False
         self.is_current_step_visible = True
         self.calibration_position = QPointF(0, 0)
 
@@ -102,6 +102,8 @@ class MainWindow(QMainWindow):
             self.rect_orders += tmp_orders[0:5]
         elif steps == 20:
             self.rect_orders += random.sample(range(steps), steps)
+
+        print(self.rect_orders)
 
         # 取得する指標
         self.operation_times      = np.empty((steps * 3), dtype=float)
@@ -225,7 +227,7 @@ class MainWindow(QMainWindow):
         painter.drawRect(self.rectangles[self.rect_orders[self.current_order % 20]])
 
         # 現在の段階
-        if self.is_current_step_visible:
+        if self.is_current_step_visible or not self.is_started_experiment:
             painter.setBrush(Qt.blue)
             painter.drawRect(self.rectangles[self.current_knee_step])
 
