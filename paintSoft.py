@@ -589,13 +589,20 @@ class MainWindow(QMainWindow):
         self.canvas[self.active_canvas].setEnabled(True)
         self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode)
 
-        # 選択したレイヤと下のレイヤは見えるようにする
+        # 選択したレイヤより下のレイヤは現在の表示状況を反映する
+        visible_states = self.canvasNameTableModel.is_visible
         for i in range(0, self.active_canvas + 1):
-            self.canvas[i].setVisible(True)
+            self.canvas[i].setVisible(visible_states[i])
+
+        # 選択したレイヤは表示する
+        self.canvas[i].setVisible(True)
+        self.canvasNameTableModel.set_canvas_visible(i, True)
 
         # 選択したレイヤより上のレイヤは見えないようにする
         for i in range(self.active_canvas + 1, len(self.canvas)):
             self.canvas[i].setVisible(False)
+            self.canvasNameTableModel.set_canvas_visible(i, False)
+        self.canvasNameTableModel.layoutChanged.emit()
 
         self.statusbar.showMessage(
             "レイヤ「" + str(self.canvasNameTableModel.canvas_name[self.active_canvas]) + "」へ切り替わりました")
@@ -610,13 +617,20 @@ class MainWindow(QMainWindow):
         self.canvas[self.active_canvas].setEnabled(True)
         self.canvas[self.active_canvas].operation_mode_changed(self.current_knee_operation_mode)
 
-        # 選択したレイヤと下のレイヤは見えるようにする
+        # 選択したレイヤより下のレイヤは現在の表示状況を反映する
+        visible_states = self.canvasNameTableModel.is_visible
         for i in range(0, self.active_canvas + 1):
-            self.canvas[i].setVisible(True)
+            self.canvas[i].setVisible(visible_states[i])
+
+        # 選択したレイヤは表示する
+        self.canvas[i].setVisible(True)
+        self.canvasNameTableModel.set_canvas_visible(i, True)
 
         # 選択したレイヤより上のレイヤは見えないようにする
         for i in range(self.active_canvas + 1, len(self.canvas)):
             self.canvas[i].setVisible(False)
+            self.canvasNameTableModel.set_canvas_visible(i, False)
+        self.canvasNameTableModel.layoutChanged.emit()
 
         self.statusbar.showMessage(
             "レイヤ「" + str(self.canvasNameTableModel.canvas_name[self.active_canvas]) + "」へ切り替わりました")
