@@ -130,8 +130,8 @@ class CanvasNameTableModel(QAbstractTableModel):
         self.canvas_name.append(canvasName)
         self.is_visible.append(True)
 
-    def toggle_canvas_visible(self, index: int):
-        self.is_visible[index] = not self.is_visible[index]
+    def set_canvas_visible(self, index: int, to: bool):
+        self.is_visible[index] = to
         return self.is_visible[index]
 
     def delete_last_canvas(self):
@@ -374,7 +374,6 @@ class Canvas(QWidget):
         self.update()
 
 
-
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
@@ -443,7 +442,7 @@ class MainWindow(QMainWindow):
         self.savePictureButton = QPushButton(self.centralwidget)
         self.savePictureButton.setGeometry(QRect(750, 480, 140, 35))
         self.savePictureButton.setObjectName("savePictureButton")
-        self.savePictureButton.clicked.connect(self.save_picture)
+        self.savePictureButton.clicked.connect(self.save_all_canvas)
 
         self.colorPickerToolButton = QToolButton(self.centralwidget)
         self.colorPickerToolButton.setGeometry(QRect(810, 530, 71, 22))
@@ -488,7 +487,7 @@ class MainWindow(QMainWindow):
         self.canvas[0].setGeometry(QRect(0, 0, 600, 600))
         self.canvas[0].setObjectName("canvas0")
         palette = self.canvas[0].palette()
-        palette.setColor(QPalette.Background, QColor(255, 255, 255, 255))
+        palette.setColor(QPalette.Background, QColor(255, 255, 255, 120))
         self.canvas[0].setPalette(palette)
         self.canvas[0].setAutoFillBackground(True)
         self.active_canvas = 0
@@ -519,6 +518,7 @@ class MainWindow(QMainWindow):
         self.IsAllCanvasInvisibleradioButton.setText(_translate("MainWindow", "全レイヤを透明/不透明にする"))
         QMetaObject.connectSlotsByName(self)
 
+    # -- レイヤ（canvas）に対する操作 --
     def add_canvas(self):
         new_canvas = Canvas(self.centralwidget)
         new_canvas.setGeometry(QRect(0, 0, 600, 600))
@@ -572,10 +572,10 @@ class MainWindow(QMainWindow):
             self.switch_canvas_from_table(row)
         elif col == 1:
             if row <= self.active_canvas:
-                is_visible = self.canvasNameTableModel.toggle_canvas_visible(row)
-                # self.canvas[self.active_canvas].switch_visible(is_visible)
+                origin_state = self.canvasNameTableModel.is_visible[row]
+                is_visible = self.canvasNameTableModel.set_canvas_visible(row, not origin_state)
+                # self.canvas[row].switch_visible(is_visible)
                 self.canvas[row].setVisible(is_visible)
-
 
         self.canvasNameTableModel.layoutChanged.emit()
 
@@ -621,6 +621,28 @@ class MainWindow(QMainWindow):
         self.statusbar.showMessage(
             "レイヤ「" + str(self.canvasNameTableModel.canvas_name[self.active_canvas]) + "」へ切り替わりました")
 
+    # -- 絵のセーブとロード --
+    def save_all_canvas(self):
+        origin_visible_states = self.canvasNameTableModel.is_visible
+        origin_active_canvas  = self.active_canvas
+
+        picture = QPixmap()
+        for i in range(len(self.canvas)):
+            self.switch_canvas_from_index(i)     # レイヤを切り替え（上部のレイヤは見えない）
+            for j in range(i):
+                self.canvas[j].setVisible(False) # キャプチャするレイヤより下のレイヤを非表示にする
+
+            picture = self.centralwidget.grab(QRect(0, 0, 600, 600))
+            picture.save("test{}.png".format(i))
+
+        # 元の状態に戻す
+        self.switch_canvas_from_index(origin_active_canvas)
+
+        for i in range(origin_active_canvas):
+            is_visible = self.canvasNameTableModel.set_canvas_visible(i, origin_visible_states[i])
+            self.canvas[i].setVisible(origin_visible_states[i])
+
+
     def save_picture(self):
         picture = QPixmap()
         picture = self.centralwidget.grab(QRect(0, 0, 600, 600))
@@ -634,6 +656,7 @@ class MainWindow(QMainWindow):
         self.canvas[self.active_canvas].load_picture(image)
         self.statusbar.showMessage("picture")
 
+    # -*- 色変更 -*-
     def pick_color(self):
         picked_color = self.pen_color.getColor(self.canvas[self.active_canvas].current_line_color)
         # print(pickedColor.hsvSaturation())
@@ -645,6 +668,7 @@ class MainWindow(QMainWindow):
                                                                 picked_color.blue())
         self.colorPickerToolButton.setStyleSheet(color_string)
 
+    # -*- 操作モードの切り替え -*-
     def switch_drawing_mode(self):
         if self.current_drawing_mode == OperationMode.DRAWING_POINTS:
             self.current_drawing_mode = OperationMode.MOVING_POINTS
@@ -698,6 +722,7 @@ class MainWindow(QMainWindow):
         self.displayKneeOperationModeTextLabel.setText("Knee mode: \n {}".format(self.current_knee_operation_mode))
         self.statusbar.showMessage("Mode:{}".format(self.current_drawing_mode.name))
 
+    # -*- イベント処理（継承元のオーバーライド）-*-
     def keyPressEvent(self, keyEvent):
         # print(keyEvent.key())
         if keyEvent.key() == Qt.Key_Return:
@@ -706,6 +731,7 @@ class MainWindow(QMainWindow):
         if keyEvent.key() == Qt.Key_Backspace:
             self.canvas[self.active_canvas].delete_last_path()
 
+    # -*- 実験を記録する関係 -*-
     def setup_experiment(self):
         # 取得する指標
 
@@ -772,6 +798,7 @@ class MainWindow(QMainWindow):
                        comments=' ')
             self.statusbar.showMessage("Saved.")
 
+    # -*- 膝操作の操作振り分け -*-
     def control_params_with_knee(self, x, y):
         if y == 0:
             if not self.is_mode_switched:
