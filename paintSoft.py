@@ -159,8 +159,9 @@ class Canvas(QWidget):
 
         self.rounded_polygon = RoundedPolygon(10000)
 
-        self.existing_paths = []
-        self.clicked_points = []
+        self.existing_paths  = [] # 確定したパスを保存
+        self.recorded_points = [] # 確定した点を保存（実験の記録用）
+        self.clicked_points  = [] # 今描いている線の制御点を記録
         self.cursor_position = QPointF()
         self.cursor_position_mousePressed = QPointF()
         self.knee_position = QPointF()
@@ -337,6 +338,8 @@ class Canvas(QWidget):
             #線と色を記録
             self.existing_paths.append(painter_path)
             self.line_color.append(self.current_line_color)
+            self.clicked_points.pop()
+            self.recorded_points.append(self.clicked_points)
 
             #点をリセット
             self.clicked_points = []
@@ -442,7 +445,7 @@ class MainWindow(QMainWindow):
         self.savePictureButton = QPushButton(self.centralwidget)
         self.savePictureButton.setGeometry(QRect(750, 480, 140, 35))
         self.savePictureButton.setObjectName("savePictureButton")
-        self.savePictureButton.clicked.connect(self.save_all_canvas)
+        self.savePictureButton.clicked.connect(self.save_all_picture)
 
         self.colorPickerToolButton = QToolButton(self.centralwidget)
         self.colorPickerToolButton.setGeometry(QRect(810, 530, 71, 22))
@@ -636,7 +639,7 @@ class MainWindow(QMainWindow):
             "レイヤ「" + str(self.canvasNameTableModel.canvas_name[self.active_canvas]) + "」へ切り替わりました")
 
     # -- 絵のセーブとロード --
-    def save_all_canvas(self):
+    def save_all_picture(self):
         origin_visible_states = self.canvasNameTableModel.is_visible
         origin_active_canvas  = self.active_canvas
 
@@ -647,7 +650,7 @@ class MainWindow(QMainWindow):
                 self.canvas[j].setVisible(False) # キャプチャするレイヤより下のレイヤを非表示にする
 
             picture = self.centralwidget.grab(QRect(0, 0, 600, 600))
-            picture.save("test{}.png".format(i))
+            picture.save("results/p{}/pictures/canvas{}.png".format(participant_No, i))
 
         # 元の状態に戻す
         self.switch_canvas_from_index(origin_active_canvas)
@@ -655,6 +658,24 @@ class MainWindow(QMainWindow):
         for i in range(origin_active_canvas):
             is_visible = self.canvasNameTableModel.set_canvas_visible(i, origin_visible_states[i])
             self.canvas[i].setVisible(origin_visible_states[i])
+
+        self.save_all_points_and_paths()
+
+    def save_all_points_and_paths(self):
+        points_record_file = open('points_record.txt', 'w')
+        for canvas in self.canvas:
+            # print(canvas.recorded_points)
+            points_record_file.write("[\n")
+            for line in canvas.recorded_points:
+                points_string = "   ["
+                for point in line:
+                    points_string += "({}, {});".format(point.x(), point.y())
+                points_string = points_string[:-1] # 末尾の「;」だけ削除
+                points_string += "]\n"
+                points_record_file.write(points_string)
+            points_record_file.write("],\n")
+
+
 
 
     def save_picture(self):
