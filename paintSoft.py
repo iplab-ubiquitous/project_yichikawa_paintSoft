@@ -7,9 +7,9 @@ import KneePosition
 from PyQt5.QtCore import Qt, QPoint, QPointF, QRect, QSize, QMetaObject, QCoreApplication, QAbstractTableModel, \
     QModelIndex, QTimer, QThread, QObject, pyqtSignal
 from PyQt5.QtGui import QPainter, QPainterPath, QPolygon, QMouseEvent, QImage, qRgb, QPalette, QColor, QPaintEvent, \
-    QPixmap, QDragLeaveEvent, QDragMoveEvent
+    QPixmap, QDragLeaveEvent, QDragMoveEvent, QKeySequence
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QSlider, QTableView, QMenuBar, QStatusBar, \
-    QPushButton, QTextEdit, QAbstractItemView, QFileDialog, QLabel, QToolButton, QColorDialog, QRadioButton
+    QPushButton, QTextEdit, QAbstractItemView, QFileDialog, QLabel, QToolButton, QColorDialog, QRadioButton, QAction
 import PyQt5.sip
 import numpy as np
 from enum import Enum
@@ -392,6 +392,20 @@ class MainWindow(QMainWindow):
         self.current_knee_operation_mode = OperationMode.NONE
         # self.timerThread = QThread()
 
+        # 実験記録関連の変数
+        self.setup_experiment()
+        start_experiment_action = QAction("計測開始", self)
+        start_experiment_action.setShortcut(QKeySequence("Ctrl+P"))
+        start_experiment_action.triggered.connect(self.start_experiment)
+
+        save_records_action = QAction("計測結果を保存", self)
+        save_records_action.setShortcut(QKeySequence("Ctrl+S"))
+        save_records_action.triggered.connect(self.save_picture_and_experiment)
+
+        operation_menu = self.menubar.addMenu("experiments")
+        operation_menu.addAction(start_experiment_action)
+        operation_menu.addAction(save_records_action)
+
         try:
             self.timer_thread = KneePosition.TimerThread()
             self.timer_thread.updateSignal.connect(self.control_params_with_knee)
@@ -445,7 +459,7 @@ class MainWindow(QMainWindow):
         self.savePictureButton = QPushButton(self.centralwidget)
         self.savePictureButton.setGeometry(QRect(750, 480, 140, 35))
         self.savePictureButton.setObjectName("savePictureButton")
-        self.savePictureButton.clicked.connect(self.save_all_picture)
+        self.savePictureButton.clicked.connect(self.save_picture_and_experiment)
 
         self.colorPickerToolButton = QToolButton(self.centralwidget)
         self.colorPickerToolButton.setGeometry(QRect(810, 530, 71, 22))
@@ -650,7 +664,7 @@ class MainWindow(QMainWindow):
                 self.canvas[j].setVisible(False) # キャプチャするレイヤより下のレイヤを非表示にする
 
             picture = self.centralwidget.grab(QRect(0, 0, 600, 600))
-            picture.save("results/p{}/pictures/canvas{}.png".format(participant_No, i))
+            picture.save("result_paint_experiment/p{}/canvas{}.png".format(participant_No, i))
 
         # 元の状態に戻す
         self.switch_canvas_from_index(origin_active_canvas)
@@ -658,8 +672,6 @@ class MainWindow(QMainWindow):
         for i in range(origin_active_canvas):
             is_visible = self.canvasNameTableModel.set_canvas_visible(i, origin_visible_states[i])
             self.canvas[i].setVisible(origin_visible_states[i])
-
-        self.save_all_points_and_paths()
 
     def save_all_points_and_paths(self):
         points_record_file = open('points_record.txt', 'w')
@@ -674,9 +686,6 @@ class MainWindow(QMainWindow):
                 points_string += "]\n"
                 points_record_file.write(points_string)
             points_record_file.write("],\n")
-
-
-
 
     def save_picture(self):
         picture = QPixmap()
@@ -769,7 +778,7 @@ class MainWindow(QMainWindow):
     # -*- 実験を記録する関係 -*-
     def setup_experiment(self):
         # 取得する指標
-
+        self.current_position     = QPointF(0, 0)
 
         # タイマー
         self.start_time = 0
@@ -777,8 +786,7 @@ class MainWindow(QMainWindow):
 
         self.is_started_experiment = False
 
-        self.frame_records = np.empty((0, 3), float)  # 操作ごとの記録
-        self.operation_records = np.empty((0, 5), float)  # フレーム（膝位置が更新される）ごとの記録
+        self.frame_records = np.empty((0, 5), float)  # 操作ごとの記録
 
     def start_experiment(self):
         self.start_time = time.time()
@@ -794,47 +802,39 @@ class MainWindow(QMainWindow):
             self.frame_records = np.append(self.frame_records, np.array(
                 [[self.current_position.x(),
                   self.current_position.y(),
+                  self.current_drawing_mode,
+                  self.current_knee_operation_mode,
                   current_time]]
             ), axis=0)
+            print(self.frame_records)
 
-    def record_operation(self):
-        current_time = time.time() - self.start_time
+    def save_picture_and_experiment(self):
+        if self.is_started_experiment:
+            self.is_started_experiment = False
+            self.save_records()
+            self.save_all_points_and_paths()
 
-        operation_times = current_time - self.previous_operated_time
-        offsets = self.current_knee_step - self.rect_orders[self.current_order]
 
-        self.operation_records = np.append(self.operation_records, np.array(
-            [[self.current_position.x(),
-              self.current_position.y(),
-              operation_times,
-              self.current_knee_step,
-              self.rect_orders[self.current_order]]]
-        ), axis=0)
-        self.previous_operated_time = current_time
-        self.statusbar.showMessage(str(current_time))
+        self.save_all_picture()
 
     def save_records(self):
-        if not self.is_started_experiment:
-            date = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            file_path = "result_paint_experiment/p{}/data/".format(participant_No)
-            try:
-                os.makedirs(file_path)
-            except FileExistsError:
-                pass
+        date = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_path = "result_paint_experiment/p{}/".format(participant_No)
+        try:
+            os.makedirs(file_path)
+        except FileExistsError:
+            pass
 
-            np.savetxt(file_path + "test_frameRecords_{}.csv".format(date), self.frame_records, delimiter=',',
-                       fmt=['%.5f', '%.5f', '%.5f'],
-                       header='knee_pos_x, knee_pos_y, time',
-                       comments=' ')
-            np.savetxt(file_path + "test_operationRecords_{}.csv".format(date), self.operation_records, delimiter=',',
-                       fmt=['%.5f', '%.5f', '%.5f', '%.0f', '%.0f'],
-                       header="knee_pos_x, knee_pos_y, time, selected_No, target_No, calibration x:{} y:{}"
-                       .format(self.kneePosition.knee_pos_x_center, self.kneePosition.knee_pos_y_center),
-                       comments=' ')
-            self.statusbar.showMessage("Saved.")
+        np.savetxt(file_path + "test_frameRecords_{}.csv".format(date), self.frame_records, delimiter=',',
+                   fmt=['%.5f', '%.5f', '%.0f', '%.0f', '%.5f'],
+                   header='knee_pos_x, knee_pos_y, drawing_mode, knee_operation_mode, time',
+                   comments=' ')
 
     # -*- 膝操作の操作振り分け -*-
     def control_params_with_knee(self, x, y):
+        self.current_position.setX(x)
+        self.current_position.setY(y)
+        self.record_frame()
         if y == 0:
             if not self.is_mode_switched:
                 self.statusbar.showMessage("switch")
