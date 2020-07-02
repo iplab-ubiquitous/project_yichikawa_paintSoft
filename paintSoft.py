@@ -18,11 +18,11 @@ participant_No = 0
 
 
 class OperationMode(Enum):
-    NONE           = 0
+    NONE = 0
     DRAWING_POINTS = 1
-    MOVING_POINTS  = 2
-    SWITCH_LAYER   = 3
-    COLOR_PICKER   = 4
+    MOVING_POINTS = 2
+    SWITCH_LAYER = 3
+    COLOR_PICKER = 4
 
 
 # 任意の点を通る曲線を描くためのパスを作る
@@ -159,14 +159,15 @@ class Canvas(QWidget):
 
         self.rounded_polygon = RoundedPolygon(10000)
 
-        self.existing_paths  = [] # 確定したパスを保存
-        self.recorded_points = [] # 確定した点を保存（実験の記録用）
-        self.clicked_points  = [] # 今描いている線の制御点を記録
+        self.existing_paths = []  # 確定したパスを保存
+        self.recorded_points = []  # 確定した点を保存（実験の記録用）
+        self.clicked_points = []  # 今描いている線の制御点を記録
         self.cursor_position = QPointF()
         self.cursor_position_mousePressed = QPointF()
         self.knee_position = QPointF()
         self.knee_position_mousePressed = QPointF()
         self.current_drawing_mode = OperationMode.DRAWING_POINTS
+        self.current_knee_operation_mode = OperationMode.NONE
 
         self.line_color = []
         self.current_line_color = QColor()
@@ -178,8 +179,10 @@ class Canvas(QWidget):
 
         self.show()
 
-    def mousePressEvent(self, event: QMouseEvent):
+    def set_experiment_controller(self, excontroller):
+        self.experiment_controller = excontroller
 
+    def mousePressEvent(self, event: QMouseEvent):
         if self.current_drawing_mode == OperationMode.DRAWING_POINTS:
             # 制御点の追加
             if event.button() == Qt.LeftButton:
@@ -202,6 +205,9 @@ class Canvas(QWidget):
                 self.update()
 
     def mouseMoveEvent(self, event: QMouseEvent):
+        print(event.pos())
+        self.experiment_controller.current_mouse_position = event.pos()
+        self.experiment_controller.record_frame(self.current_drawing_mode, self.current_knee_operation_mode)
         if self.current_drawing_mode == OperationMode.DRAWING_POINTS:
             self.clicked_points.append(event.pos())
             self.is_line_prediction = True
@@ -220,7 +226,7 @@ class Canvas(QWidget):
         painter = QPainter(self)
 
         if self.is_picture_canvas:
-             painter.drawImage(QRect(0, 0, 600, 600),self.image)
+            painter.drawImage(QRect(0, 0, 600, 600), self.image)
 
         else:
             # すでに確定されているパスの描画
@@ -278,7 +284,7 @@ class Canvas(QWidget):
                         # 現在のカーソル位置から最も近い点と、その点が属するpathを記録、更新
                         # if not self.is_dragging & self.is_enable_knee_control:
                         distance = math.sqrt((control_point.x() - self.cursor_position.x()) ** 2 + (
-                                    control_point.y() - self.cursor_position.y()) ** 2)
+                                control_point.y() - self.cursor_position.y()) ** 2)
                         if distance < self.nearest_distance:
                             self.nearest_distance = distance
                             self.nearest_path = path
@@ -296,11 +302,11 @@ class Canvas(QWidget):
         if self.is_enable_knee_control:
             self.nearest_path.setElementPositionAt(self.nearest_index, self.cursor_position.x(),
                                                    self.cursor_position.y())
-        # 選択した制御点の移動量 = カーソルクリック位置 +
-        # amount_of_change = QPointF(self.cursor_position_mousePressed.x() +
-        #                            (self.knee_position.x() - self.knee_position_mousePressed.x()),
-        #                            self.cursor_position_mousePressed.y() -　　
-        #                            (self.knee_position.y() - self.knee_position_mousePressed.y()))
+            # 選択した制御点の移動量 = カーソルクリック位置 +
+            # amount_of_change = QPointF(self.cursor_position_mousePressed.x() +
+            #                            (self.knee_position.x() - self.knee_position_mousePressed.x()),
+            #                            self.cursor_position_mousePressed.y() -　　
+            #                            (self.knee_position.y() - self.knee_position_mousePressed.y()))
             amount_of_change = QPointF(self.cursor_position.x() +
                                        (self.knee_position.x() - self.knee_position_mousePressed.x()),
                                        self.cursor_position.y() -
@@ -335,13 +341,13 @@ class Canvas(QWidget):
             self.clicked_points.append(self.clicked_points[len(self.clicked_points) - 1])
             painter_path = self.rounded_polygon.get_path(self.clicked_points)
 
-            #線と色を記録
+            # 線と色を記録
             self.existing_paths.append(painter_path)
             self.line_color.append(self.current_line_color)
             self.clicked_points.pop()
             self.recorded_points.append(self.clicked_points)
 
-            #点をリセット
+            # 点をリセット
             self.clicked_points = []
             self.update()
 
@@ -359,8 +365,9 @@ class Canvas(QWidget):
             palette.setColor(QPalette.Background, QColor(255, 255, 255, 255))
         self.setPalette(palette)
 
-    def operation_mode_changed(self, to: OperationMode):
-        self.current_drawing_mode = to
+    def operation_mode_changed(self, to_drawing: OperationMode, to_knee: OperationMode):
+        self.current_drawing_mode = to_drawing
+        self.current_knee_operation_mode = to_knee
         self.fix_path()
 
     def set_picture_file_name(self, picture_file_name: str):
@@ -377,9 +384,59 @@ class Canvas(QWidget):
         self.update()
 
 
+class ExperimentController():
+    def __init__(self):
+        self.is_enabled_knee_control = False
+
+        # 取得する指標
+        self.current_knee_position = QPointF(0, 0)
+        self.current_mouse_position = QPointF(0, 0)
+
+        # タイマー
+        self.start_time = 0
+        self.previous_operated_time = 0
+
+        self.is_started_experiment = False
+
+        self.frame_records = np.empty((0, 7), float)  # 操作ごとの記録
+
+    def start_experiment(self):
+        self.start_time = time.time()
+        self.is_started_experiment = True
+
+    def record_frame(self, current_drawing_mode, current_knee_operation_mode):
+        if self.is_started_experiment:
+            current_time = time.time() - self.start_time
+            self.frame_records = np.append(self.frame_records, np.array(
+                [[self.current_mouse_position.x(),
+                  self.current_mouse_position.y(),
+                  self.current_knee_position.x(),
+                  self.current_knee_position.y(),
+                  current_drawing_mode.value,
+                  current_knee_operation_mode.value,
+                  current_time]]
+            ), axis=0)
+            print(self.frame_records)
+
+    def save_records(self):
+        date = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_path = "result_paint_experiment/p{}/{}/".format(participant_No,
+                                                             ("knee" if self.is_enabled_knee_control else "mouse"))
+        try:
+            os.makedirs(file_path)
+        except FileExistsError:
+            pass
+
+        np.savetxt(file_path + "test_frameRecords_{}.csv".format(date), self.frame_records, delimiter=',',
+                   fmt=['%.0f', '%.0f', '%.5f', '%.5f', '%.0f', '%.0f', '%.5f'],
+                   header='mouse_pos_x, mouse_pos_y, knee_pos_x, knee_pos_y, drawing_mode, knee_operation_mode, time',
+                   comments=' ')
+
+
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
+        self.experiment_controller = ExperimentController()
         self.setupUi()
         self.show()
 
@@ -393,7 +450,6 @@ class MainWindow(QMainWindow):
         # self.timerThread = QThread()
 
         # 実験記録関連の変数
-        self.setup_experiment()
         start_experiment_action = QAction("計測開始", self)
         start_experiment_action.setShortcut(QKeySequence("Ctrl+P"))
         start_experiment_action.triggered.connect(self.start_experiment)
@@ -412,6 +468,7 @@ class MainWindow(QMainWindow):
             self.timer_thread.start()
             self.kneePosition = self.timer_thread.kneePosition
             self.is_enabled_knee_control = True
+            self.experiment_controller.is_enabled_knee_control = True
             self.current_knee_operation_mode = OperationMode.DRAWING_POINTS
 
         except serial.serialutil.SerialException as e:
@@ -507,6 +564,7 @@ class MainWindow(QMainWindow):
         palette.setColor(QPalette.Background, QColor(255, 255, 255, 120))
         self.canvas[0].setPalette(palette)
         self.canvas[0].setAutoFillBackground(True)
+        self.canvas[0].experiment_controller = self.experiment_controller
         self.active_canvas = 0
 
         self.setCentralWidget(self.centralwidget)
@@ -540,11 +598,13 @@ class MainWindow(QMainWindow):
         new_canvas = Canvas(self.centralwidget)
         new_canvas.setGeometry(QRect(0, 0, 600, 600))
         new_canvas.setObjectName("canvas")
+        new_canvas.mainWindow = self
         palette = new_canvas.palette()
         palette.setColor(QPalette.Background, QColor(255, 255, 255, 120))
         new_canvas.setPalette(palette)
         new_canvas.setAutoFillBackground(True)
         new_canvas.is_enable_knee_control = self.is_enabled_knee_control
+        new_canvas.experiment_controller = self.experiment_controller
         new_canvas.operation_mode_changed(self.current_drawing_mode)
 
         self.canvas.append(new_canvas)
@@ -604,7 +664,8 @@ class MainWindow(QMainWindow):
         for canvas in self.canvas:
             canvas.setEnabled(False)
         self.canvas[self.active_canvas].setEnabled(True)
-        self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode)
+        self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode,
+                                                               self.current_knee_operation_mode)
 
         # 選択したレイヤより下のレイヤは現在の表示状況を反映する
         visible_states = self.canvasNameTableModel.is_visible
@@ -632,7 +693,8 @@ class MainWindow(QMainWindow):
         for canvas in self.canvas:
             canvas.setEnabled(False)
         self.canvas[self.active_canvas].setEnabled(True)
-        self.canvas[self.active_canvas].operation_mode_changed(self.current_knee_operation_mode)
+        self.canvas[self.active_canvas].operation_mode_changed(self.current_knee_operation_mode,
+                                                               self.current_knee_operation_mode)
 
         # 選択したレイヤより下のレイヤは現在の表示状況を反映する
         visible_states = self.canvasNameTableModel.is_visible
@@ -655,16 +717,20 @@ class MainWindow(QMainWindow):
     # -- 絵のセーブとロード --
     def save_all_picture(self):
         origin_visible_states = self.canvasNameTableModel.is_visible
-        origin_active_canvas  = self.active_canvas
+        origin_active_canvas = self.active_canvas
 
         picture = QPixmap()
         for i in range(len(self.canvas)):
-            self.switch_canvas_from_index(i)     # レイヤを切り替え（上部のレイヤは見えない）
+            self.switch_canvas_from_index(i)  # レイヤを切り替え（上部のレイヤは見えない）
             for j in range(i):
-                self.canvas[j].setVisible(False) # キャプチャするレイヤより下のレイヤを非表示にする
+                self.canvas[j].setVisible(False)  # キャプチャするレイヤより下のレイヤを非表示にする
 
             picture = self.centralwidget.grab(QRect(0, 0, 600, 600))
-            picture.save("result_paint_experiment/p{}/canvas{}.png".format(participant_No, i))
+            picture.save("result_paint_experiment/p{}/{}/canvas{}.png"
+                         .format(participant_No,
+                                 ("knee" if self.is_enabled_knee_control else "mouse"),
+                                 i)
+                         )
 
         # 元の状態に戻す
         self.switch_canvas_from_index(origin_active_canvas)
@@ -674,7 +740,10 @@ class MainWindow(QMainWindow):
             self.canvas[i].setVisible(origin_visible_states[i])
 
     def save_all_points_and_paths(self):
-        points_record_file = open('points_record.txt', 'w')
+        points_record_file = open('result_paint_experiment/p{}/{}/points_record.txt'
+                                  .format(participant_No,
+                                          ("knee" if self.is_enabled_knee_control else "mouse")),
+                                  'w')
         for canvas in self.canvas:
             # print(canvas.recorded_points)
             points_record_file.write("[\n")
@@ -682,7 +751,7 @@ class MainWindow(QMainWindow):
                 points_string = "   ["
                 for point in line:
                     points_string += "({}, {});".format(point.x(), point.y())
-                points_string = points_string[:-1] # 末尾の「;」だけ削除
+                points_string = points_string[:-1]  # 末尾の「;」だけ削除
                 points_string += "]\n"
                 points_record_file.write(points_string)
             points_record_file.write("],\n")
@@ -732,7 +801,8 @@ class MainWindow(QMainWindow):
             else:
                 self.current_drawing_mode = OperationMode.NONE
 
-        self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode)
+        self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode,
+                                                               self.current_knee_operation_mode)
         self.selectOperationModeButton.setText("{}".format(self.current_drawing_mode.name))
         self.displayKneeOperationModeTextLabel.setText("Knee mode: \n {}".format(self.current_knee_operation_mode))
         self.statusbar.showMessage("Mode:{}".format(self.current_drawing_mode.name))
@@ -740,28 +810,29 @@ class MainWindow(QMainWindow):
     def switch_knee_operation_mode(self):
         if self.current_knee_operation_mode == OperationMode.NONE:
             self.current_knee_operation_mode = OperationMode.DRAWING_POINTS
-            self.current_drawing_mode        = OperationMode.DRAWING_POINTS
+            self.current_drawing_mode = OperationMode.DRAWING_POINTS
 
         elif self.current_knee_operation_mode == OperationMode.DRAWING_POINTS:
             self.current_knee_operation_mode = OperationMode.MOVING_POINTS
-            self.current_drawing_mode        = OperationMode.MOVING_POINTS
+            self.current_drawing_mode = OperationMode.MOVING_POINTS
 
         elif self.current_knee_operation_mode == OperationMode.MOVING_POINTS:
             self.current_knee_operation_mode = OperationMode.SWITCH_LAYER
-            self.current_drawing_mode        = OperationMode.DRAWING_POINTS
+            self.current_drawing_mode = OperationMode.DRAWING_POINTS
 
         elif self.current_knee_operation_mode == OperationMode.SWITCH_LAYER:
             self.current_knee_operation_mode = OperationMode.COLOR_PICKER
-            self.current_drawing_mode        = OperationMode.DRAWING_POINTS
+            self.current_drawing_mode = OperationMode.DRAWING_POINTS
 
         elif self.current_knee_operation_mode == OperationMode.COLOR_PICKER:
             self.current_knee_operation_mode = OperationMode.DRAWING_POINTS
-            self.current_drawing_mode        = OperationMode.DRAWING_POINTS
+            self.current_drawing_mode = OperationMode.DRAWING_POINTS
 
         else:
             self.current_knee_operation_mode = OperationMode.NONE
 
-        self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode)
+        self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode,
+                                                               self.current_knee_operation_mode)
         self.selectOperationModeButton.setText("{}".format(self.current_drawing_mode.name))
         self.displayKneeOperationModeTextLabel.setText("Knee mode: \n {}".format(self.current_knee_operation_mode))
         self.statusbar.showMessage("Mode:{}".format(self.current_drawing_mode.name))
@@ -776,65 +847,24 @@ class MainWindow(QMainWindow):
             self.canvas[self.active_canvas].delete_last_path()
 
     # -*- 実験を記録する関係 -*-
-    def setup_experiment(self):
-        # 取得する指標
-        self.current_position     = QPointF(0, 0)
-
-        # タイマー
-        self.start_time = 0
-        self.previous_operated_time = 0
-
-        self.is_started_experiment = False
-
-        self.frame_records = np.empty((0, 5), float)  # 操作ごとの記録
-
     def start_experiment(self):
-        self.start_time = time.time()
-        self.is_started_experiment = True
-
+        self.experiment_controller.start_experiment()
         self.statusbar.showMessage("Experiment started p{}"
                                    .format(participant_No)
                                    )
 
-    def record_frame(self):
-        if self.is_started_experiment:
-            current_time = time.time() - self.start_time
-            self.frame_records = np.append(self.frame_records, np.array(
-                [[self.current_position.x(),
-                  self.current_position.y(),
-                  self.current_drawing_mode,
-                  self.current_knee_operation_mode,
-                  current_time]]
-            ), axis=0)
-            print(self.frame_records)
-
     def save_picture_and_experiment(self):
-        if self.is_started_experiment:
-            self.is_started_experiment = False
-            self.save_records()
+        if self.experiment_controller.is_started_experiment:
+            self.experiment_controller.is_started_experiment = False
+            self.experiment_controller.save_records()  # save系統の処理で一番最初に来るように（保存パスが作られるため）
             self.save_all_points_and_paths()
-
 
         self.save_all_picture()
 
-    def save_records(self):
-        date = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_path = "result_paint_experiment/p{}/".format(participant_No)
-        try:
-            os.makedirs(file_path)
-        except FileExistsError:
-            pass
-
-        np.savetxt(file_path + "test_frameRecords_{}.csv".format(date), self.frame_records, delimiter=',',
-                   fmt=['%.5f', '%.5f', '%.0f', '%.0f', '%.5f'],
-                   header='knee_pos_x, knee_pos_y, drawing_mode, knee_operation_mode, time',
-                   comments=' ')
-
     # -*- 膝操作の操作振り分け -*-
     def control_params_with_knee(self, x, y):
-        self.current_position.setX(x)
-        self.current_position.setY(y)
-        self.record_frame()
+        self.experiment_controller.current_knee_position = QPointF(x, y)
+        self.experiment_controller.record_frame(self.current_drawing_mode, self.current_knee_operation_mode)
         if y == 0:
             if not self.is_mode_switched:
                 self.statusbar.showMessage("switch")
@@ -853,7 +883,7 @@ class MainWindow(QMainWindow):
 
             elif self.current_knee_operation_mode == OperationMode.SWITCH_LAYER:
                 x, _ = self.kneePosition.get_mapped_positions(x, y, 1, 359)
-                target_number = (int)(x / (360/self.canvasNameTableModel.rowCount()))
+                target_number = (int)(x / (360 / self.canvasNameTableModel.rowCount()))
                 if not self.active_canvas == target_number:
                     self.switch_canvas_from_index(target_number)
 
