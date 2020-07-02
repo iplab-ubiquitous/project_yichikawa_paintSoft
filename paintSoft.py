@@ -500,7 +500,7 @@ class MainWindow(QMainWindow):
         self.canvasTableView.clicked.connect(self.table_item_clicked)
 
         self.addCanvasButton = QPushButton(self.centralwidget)
-        self.addCanvasButton.setGeometry(QRect(760, 320, 120, 25))
+        self.addCanvasButton.setGeometry(QRect(600, 350, 120, 25))
         self.addCanvasButton.setObjectName("addCanvasButton")
         self.addCanvasButton.clicked.connect(self.add_canvas)
 
@@ -508,10 +508,6 @@ class MainWindow(QMainWindow):
         self.deleteCanvasButton.setGeometry(QRect(760, 350, 120, 25))
         self.deleteCanvasButton.setObjectName("deleteCanvasButton")
         self.deleteCanvasButton.clicked.connect(self.delete_canvas)
-
-        self.addCanvasNameTextEdit = QTextEdit(self.centralwidget)
-        self.addCanvasNameTextEdit.setGeometry(QRect(610, 340, 140, 25))
-        self.addCanvasNameTextEdit.setObjectName("addCanvasNameTextEdit")
 
         self.savePictureButton = QPushButton(self.centralwidget)
         self.savePictureButton.setGeometry(QRect(750, 480, 140, 35))
@@ -548,20 +544,12 @@ class MainWindow(QMainWindow):
         self.fileReadButton.setObjectName("fileReadButton")
         self.fileReadButton.clicked.connect(self.file_read)
 
-        self.IsAllCanvasInvisibleradioButton = QPushButton(self.centralwidget)
-        self.IsAllCanvasInvisibleradioButton.setGeometry(QRect(670, 380, 200, 30))
-        self.IsAllCanvasInvisibleradioButton.setObjectName("IsAllCanvasInvisibleradioButton")
-
-        # self.widget = QWidget(self.centralwidget)
-        # self.widget.setGeometry(QRect(0, 0, 601, 511))
-        # self.widget.setObjectName("widget")
-
         self.canvas = []
         self.canvas.append(Canvas(self.centralwidget))
         self.canvas[0].setGeometry(QRect(0, 0, 600, 600))
         self.canvas[0].setObjectName("canvas0")
         palette = self.canvas[0].palette()
-        palette.setColor(QPalette.Background, QColor(255, 255, 255, 120))
+        palette.setColor(QPalette.Background, QColor(255, 255, 255, 0))
         self.canvas[0].setPalette(palette)
         self.canvas[0].setAutoFillBackground(True)
         self.canvas[0].experiment_controller = self.experiment_controller
@@ -590,7 +578,7 @@ class MainWindow(QMainWindow):
         self.fileReadButton.setText(_translate("MainWindow", "ファイルを読込む"))
         self.selectOperationModeButton.setText(_translate("MainWindow", "DRAWING_POINTS"))
         self.displayKneeOperationModeTextLabel.setText(_translate("MainWindow", "Knee mode:NONE"))
-        self.IsAllCanvasInvisibleradioButton.setText(_translate("MainWindow", "全レイヤを透明/不透明にする"))
+        # self.IsAllCanvasInvisibleradioButton.setText(_translate("MainWindow", "全レイヤを透明/不透明にする"))
         QMetaObject.connectSlotsByName(self)
 
     # -- レイヤ（canvas）に対する操作 --
@@ -600,12 +588,12 @@ class MainWindow(QMainWindow):
         new_canvas.setObjectName("canvas")
         new_canvas.mainWindow = self
         palette = new_canvas.palette()
-        palette.setColor(QPalette.Background, QColor(255, 255, 255, 120))
+        palette.setColor(QPalette.Background, QColor(255, 255, 255, 0))
         new_canvas.setPalette(palette)
         new_canvas.setAutoFillBackground(True)
         new_canvas.is_enable_knee_control = self.is_enabled_knee_control
         new_canvas.experiment_controller = self.experiment_controller
-        new_canvas.operation_mode_changed(self.current_drawing_mode)
+        new_canvas.operation_mode_changed(self.current_drawing_mode, self.current_knee_operation_mode)
 
         self.canvas.append(new_canvas)
         self.active_canvas = len(self.canvas) - 1
@@ -648,11 +636,11 @@ class MainWindow(QMainWindow):
         if col == 0:
             self.switch_canvas_from_table(row)
         elif col == 1:
-            if row <= self.active_canvas:
-                origin_state = self.canvasNameTableModel.is_visible[row]
-                is_visible = self.canvasNameTableModel.set_canvas_visible(row, not origin_state)
-                # self.canvas[row].switch_visible(is_visible)
-                self.canvas[row].setVisible(is_visible)
+            # if row <= self.active_canvas:
+            origin_state = self.canvasNameTableModel.is_visible[row]
+            is_visible = self.canvasNameTableModel.set_canvas_visible(row, not origin_state)
+            # self.canvas[row].switch_visible(is_visible)
+            self.canvas[row].setVisible(is_visible)
 
         self.canvasNameTableModel.layoutChanged.emit()
 
@@ -667,7 +655,7 @@ class MainWindow(QMainWindow):
         self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode,
                                                                self.current_knee_operation_mode)
 
-        # 選択したレイヤより下のレイヤは現在の表示状況を反映する
+        # 全てのレイヤに現在の表示状況を反映する
         visible_states = self.canvasNameTableModel.is_visible
         for i in range(0, self.active_canvas + 1):
             self.canvas[i].setVisible(visible_states[i])
