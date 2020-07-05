@@ -7,7 +7,7 @@ import KneePosition
 from PyQt5.QtCore import Qt, QPoint, QPointF, QRect, QSize, QMetaObject, QCoreApplication, QAbstractTableModel, \
     QModelIndex, QTimer, QThread, QObject, pyqtSignal
 from PyQt5.QtGui import QPainter, QPainterPath, QPolygon, QMouseEvent, QImage, qRgb, QPalette, QColor, QPaintEvent, \
-    QPixmap, QDragLeaveEvent, QDragMoveEvent, QKeySequence
+    QPixmap, QDragLeaveEvent, QDragMoveEvent, QKeySequence, QPen
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QSlider, QTableView, QMenuBar, QStatusBar, \
     QPushButton, QTextEdit, QAbstractItemView, QFileDialog, QLabel, QToolButton, QColorDialog, QRadioButton, QAction
 import PyQt5.sip
@@ -115,7 +115,7 @@ class CanvasNameTableModel(QAbstractTableModel):
             if index.column() == 0:
                 return self.canvas_name[index.row()]
             elif index.column() == 1:
-                return "🙂" if self.is_visible[index.row()] else "😴"
+                return "O" if self.is_visible[index.row()] else "X"
 
     def headerData(self, section: int, orientation: int, role: int):
         if role == Qt.DisplayRole & orientation == Qt.Horizontal:
@@ -177,6 +177,8 @@ class Canvas(QWidget):
         self.nearest_index = -1
         self.is_dragging = False
 
+        self.pen_width = 2
+
         self.show()
 
     def set_experiment_controller(self, excontroller):
@@ -232,13 +234,13 @@ class Canvas(QWidget):
             # すでに確定されているパスの描画
             if len(self.existing_paths) > 0:
                 for i in range(len(self.existing_paths)):
-                    painter.setPen(self.line_color[i])
+                    painter.setPen(QPen(self.line_color[i], self.pen_width))
                     painter.drawPath(self.existing_paths[i])
 
             if self.current_drawing_mode == OperationMode.DRAWING_POINTS:
                 # 　現在描いているパスの描画
                 if len(self.clicked_points) > 3:
-                    painter.setPen(self.current_line_color)
+                    painter.setPen(QPen(self.current_line_color, self.pen_width))
                     # print(self.clickedPoints)
                     # クリックした点まで線を伸ばすため、終点を一時的にリストに入れている
                     self.clicked_points.append(self.clicked_points[len(self.clicked_points) - 1])
@@ -248,7 +250,7 @@ class Canvas(QWidget):
                     painter.setPen(Qt.black)
                     for i in range(len(self.clicked_points)):
                         painter.drawEllipse(self.clicked_points[i], 2, 2)
-                    painter.setPen(self.current_line_color)
+                    painter.setPen(QPen(self.current_line_color, self.pen_width))
                     # 現在のマウス位置での予告線
                     if self.is_line_prediction:
                         self.clicked_points.pop()
@@ -292,7 +294,7 @@ class Canvas(QWidget):
 
                 # 一定の距離未満かつ最も近い点を赤く描画
                 if self.nearest_distance < 20:
-                    painter.setPen(Qt.red)
+                    painter.setPen(QPen(Qt.red, self.pen_width))
                     nearest_control_point = QPointF(self.nearest_path.elementAt(self.nearest_index).x,
                                                     self.nearest_path.elementAt(self.nearest_index).y)
                     painter.drawEllipse(nearest_control_point, 3, 3)
@@ -334,7 +336,7 @@ class Canvas(QWidget):
 
     def fix_path(self):
         # パスを確定
-        if self.is_line_prediction:
+        if self.is_line_prediction and not len(self.clicked_points) == 0:
             self.clicked_points.pop()
         # クリックした点まで線を伸ばすため、終点をリストに入れている
         if len(self.clicked_points) > 0:
@@ -598,9 +600,8 @@ class MainWindow(QMainWindow):
         self.canvas.append(new_canvas)
         self.active_canvas = len(self.canvas) - 1
 
-        canvas_name = self.addCanvasNameTextEdit.toPlainText()
-        if canvas_name == "":
-            canvas_name = 'canvas[' + str(self.active_canvas) + ']'
+
+        canvas_name = 'canvas[' + str(self.active_canvas) + ']'
         self.canvasNameTableModel.add_canvas(canvas_name)
         self.canvasTableView.setCurrentIndex(self.canvasNameTableModel.index(self.active_canvas, 0))
         self.canvasNameTableModel.layoutChanged.emit()
@@ -750,9 +751,9 @@ class MainWindow(QMainWindow):
         picture.save("test.png")
 
     def file_read(self):
-        file_name = "test.png"
-        if not self.readFileNametextEdit.toPlainText() == "":
-            file_name = "sampleImages/" + self.readFileNametextEdit.toPlainText() + ".png"
+        file_name = "sampleImages/watch.png"
+        # if not self.readFileNametextEdit.toPlainText() == "":
+        #     file_name = "sampleImages/" + self.readFileNametextEdit.toPlainText() + ".png"
         image = QImage(file_name)
         self.canvas[self.active_canvas].load_picture(image)
         self.statusbar.showMessage("picture")
