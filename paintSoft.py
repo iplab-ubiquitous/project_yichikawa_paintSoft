@@ -449,6 +449,7 @@ class MainWindow(QMainWindow):
         self.pen_color = QColorDialog()
         self.current_color_saturation = 127
         self.current_knee_operation_mode = OperationMode.NONE
+        self.picked_color = QColor()
         # self.timerThread = QThread()
 
         # 実験記録関連の変数
@@ -596,6 +597,7 @@ class MainWindow(QMainWindow):
         new_canvas.is_enable_knee_control = self.is_enabled_knee_control
         new_canvas.experiment_controller = self.experiment_controller
         new_canvas.operation_mode_changed(self.current_drawing_mode, self.current_knee_operation_mode)
+        new_canvas.current_line_color = self.picked_color
 
         self.canvas.append(new_canvas)
         self.active_canvas = len(self.canvas) - 1
@@ -655,6 +657,7 @@ class MainWindow(QMainWindow):
         self.canvas[self.active_canvas].setEnabled(True)
         self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode,
                                                                self.current_knee_operation_mode)
+        self.canvas[self.active_canvas].current_line_color = self.picked_color
 
         # 全てのレイヤに現在の表示状況を反映する
         visible_states = self.canvasNameTableModel.is_visible
@@ -684,6 +687,7 @@ class MainWindow(QMainWindow):
         self.canvas[self.active_canvas].setEnabled(True)
         self.canvas[self.active_canvas].operation_mode_changed(self.current_knee_operation_mode,
                                                                self.current_knee_operation_mode)
+        self.canvas[self.active_canvas].current_line_color = self.picked_color
 
         # 選択したレイヤより下のレイヤは現在の表示状況を反映する
         visible_states = self.canvasNameTableModel.is_visible
@@ -760,14 +764,14 @@ class MainWindow(QMainWindow):
 
     # -*- 色変更 -*-
     def pick_color(self):
-        picked_color = self.pen_color.getColor(self.canvas[self.active_canvas].current_line_color)
+        self.picked_color = self.pen_color.getColor(self.canvas[self.active_canvas].current_line_color)
         # print(pickedColor.hsvSaturation())
         # self.currentColorSaturation = pickedColor.hsvSaturation()
-        self.canvas[self.active_canvas].current_line_color = picked_color
+        self.canvas[self.active_canvas].current_line_color = self.picked_color
 
-        color_string = "background-color: rgb({},{},{})".format(picked_color.red(),
-                                                                picked_color.green(),
-                                                                picked_color.blue())
+        color_string = "background-color: rgb({},{},{})".format(self.picked_color.red(),
+                                                                self.picked_color.green(),
+                                                                self.picked_color.blue())
         self.colorPickerToolButton.setStyleSheet(color_string)
 
     # -*- 操作モードの切り替え -*-
