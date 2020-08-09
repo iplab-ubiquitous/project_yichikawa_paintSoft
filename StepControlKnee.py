@@ -32,7 +32,8 @@ class MainWindow(QMainWindow):
             self.calibration_position = QPointF(self.kneePosition.knee_pos_x_center, self.kneePosition.knee_pos_y_center)
 
         except serial.serialutil.SerialException as e:
-            self.statusbar.showMessage("膝操作が無効：シリアル通信が確保できていません。原因：" + str(e))
+            pass
+            # self.statusbar.showMessage("膝操作が無効：シリアル通信が確保できていません。原因：" + str(e))
 
         self.rectangles = []
         self.rect_orders = []
@@ -103,7 +104,8 @@ class MainWindow(QMainWindow):
         elif steps == 20:
             self.rect_orders += random.sample(range(steps), steps)
 
-        print(self.rect_orders)
+        for i in range(steps):
+            print(self.rectangles[i])
 
         # 取得する指標
         self.operation_times      = np.empty((steps * 3), dtype=float)

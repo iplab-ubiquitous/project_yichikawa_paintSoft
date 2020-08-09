@@ -5,11 +5,12 @@ import time
 
 import KneePosition
 from PyQt5.QtCore import Qt, QPoint, QPointF, QRect, QSize, QMetaObject, QCoreApplication, QAbstractTableModel, \
-    QModelIndex, QTimer, QThread, QObject, pyqtSignal
+    QModelIndex, QTimer, QThread, QObject, pyqtSignal, QRectF
 from PyQt5.QtGui import QPainter, QPainterPath, QPolygon, QMouseEvent, QImage, qRgb, QPalette, QColor, QPaintEvent, \
     QPixmap, QDragLeaveEvent, QDragMoveEvent, QKeySequence, QPen
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QSlider, QTableView, QMenuBar, QStatusBar, \
-    QPushButton, QTextEdit, QAbstractItemView, QFileDialog, QLabel, QToolButton, QColorDialog, QRadioButton, QAction
+    QPushButton, QTextEdit, QAbstractItemView, QFileDialog, QLabel, QToolButton, QColorDialog, QRadioButton, QAction, \
+    QDialog
 import PyQt5.sip
 import numpy as np
 from enum import Enum
@@ -157,6 +158,9 @@ class Canvas(QWidget):
         # マウス移動で出る予測線とクリックして出る本線を描画するときに区別する
         self.is_line_prediction = False
 
+        # イベント同士の競合を防ぐ
+        self.event_Locker = False
+
         self.rounded_polygon = RoundedPolygon(10000)
 
         self.existing_paths = []  # 確定したパスを保存
@@ -169,12 +173,12 @@ class Canvas(QWidget):
         self.current_drawing_mode = OperationMode.DRAWING_POINTS
         self.current_knee_operation_mode = OperationMode.NONE
 
-        self.line_color = []
+        self.__line_color = []
         self.current_line_color = QColor()
 
         self.nearest_path = QPainterPath()
         self.nearest_distance = 50.0
-        self.nearest_index = -1
+        self.nearest_index = 0
         self.is_dragging = False
 
         self.pen_width = 2
@@ -207,7 +211,6 @@ class Canvas(QWidget):
                 self.update()
 
     def mouseMoveEvent(self, event: QMouseEvent):
-        print(event.pos())
         self.experiment_controller.current_mouse_position = event.pos()
         self.experiment_controller.record_frame(self.current_drawing_mode, self.current_knee_operation_mode)
         if self.current_drawing_mode == OperationMode.DRAWING_POINTS:
@@ -216,6 +219,7 @@ class Canvas(QWidget):
             self.update()
 
         elif self.current_drawing_mode == OperationMode.MOVING_POINTS:
+            print(self.nearest_distance)
             self.cursor_position = event.pos()
             if self.is_dragging:
                 self.move_point()
@@ -225,6 +229,7 @@ class Canvas(QWidget):
         self.is_dragging = False
 
     def paintEvent(self, event: QPaintEvent):
+        # if not self.event_Locker:
         painter = QPainter(self)
 
         if self.is_picture_canvas:
@@ -234,7 +239,8 @@ class Canvas(QWidget):
             # すでに確定されているパスの描画
             if len(self.existing_paths) > 0:
                 for i in range(len(self.existing_paths)):
-                    painter.setPen(QPen(self.line_color[i], self.pen_width))
+                    print("linecolor {}: {}".format(i, self.__line_color[i].hue()))
+                    painter.setPen(QPen(self.__line_color[i], self.pen_width))
                     painter.drawPath(self.existing_paths[i])
 
             if self.current_drawing_mode == OperationMode.DRAWING_POINTS:
@@ -265,7 +271,8 @@ class Canvas(QWidget):
                         painter.setPen(Qt.red)
                         for i in range(len(self.clicked_points)):
                             painter.drawEllipse(self.clicked_points[i], 2, 2)
-                        self.clicked_points.pop()
+                        if not len(self.clicked_points) == 0:
+                            self.clicked_points.pop()
                         self.is_line_prediction = False
 
                     # 予告線でもない場合は単に点を書く
@@ -298,22 +305,18 @@ class Canvas(QWidget):
                     nearest_control_point = QPointF(self.nearest_path.elementAt(self.nearest_index).x,
                                                     self.nearest_path.elementAt(self.nearest_index).y)
                     painter.drawEllipse(nearest_control_point, 3, 3)
-                print("dist:{}".format(self.nearest_distance))
 
     def move_point(self):
         if self.is_enable_knee_control:
-            self.nearest_path.setElementPositionAt(self.nearest_index, self.cursor_position.x(),
-                                                   self.cursor_position.y())
-            # 選択した制御点の移動量 = カーソルクリック位置 +
-            # amount_of_change = QPointF(self.cursor_position_mousePressed.x() +
-            #                            (self.knee_position.x() - self.knee_position_mousePressed.x()),
-            #                            self.cursor_position_mousePressed.y() -　　
-            #                            (self.knee_position.y() - self.knee_position_mousePressed.y()))
-            amount_of_change = QPointF(self.cursor_position.x() +
-                                       (self.knee_position.x() - self.knee_position_mousePressed.x()),
-                                       self.cursor_position.y() -
-                                       (self.knee_position.y() - self.knee_position_mousePressed.y()))
-            self.nearest_path.setElementPositionAt(self.nearest_index, amount_of_change.x(), amount_of_change.y())
+            if self.nearest_distance < 20 or self.is_dragging:
+                self.nearest_path.setElementPositionAt(self.nearest_index, self.cursor_position.x(),
+                                                       self.cursor_position.y())
+
+                amount_of_change = QPointF(self.cursor_position.x() +
+                                           (self.knee_position.x() - self.knee_position_mousePressed.x()),
+                                           self.cursor_position.y() -
+                                           (self.knee_position.y() - self.knee_position_mousePressed.y()))
+                self.nearest_path.setElementPositionAt(self.nearest_index, amount_of_change.x(), amount_of_change.y())
 
         else:
             if self.nearest_distance < 20:
@@ -328,6 +331,9 @@ class Canvas(QWidget):
             if self.current_drawing_mode == OperationMode.MOVING_POINTS:
                 self.move_point()
                 self.update()
+
+    def set_line_color(self, color):
+        self.current_line_color = color
 
     def recode_knee_and_cursor_position(self):
         self.knee_position_mousePressed.setX(self.knee_position.x())
@@ -345,7 +351,9 @@ class Canvas(QWidget):
 
             # 線と色を記録
             self.existing_paths.append(painter_path)
-            self.line_color.append(self.current_line_color)
+            self.__line_color.append(self.current_line_color)
+            for i in range(len(self.__line_color)):
+                print("{}, {}".format(i, self.__line_color[i].value()))
             self.clicked_points.pop()
             self.recorded_points.append(self.clicked_points)
 
@@ -356,7 +364,7 @@ class Canvas(QWidget):
     def delete_last_path(self):
         if len(self.existing_paths) > 0:
             self.existing_paths.pop()
-            self.line_color.pop()
+            self.__line_color.pop()
             self.update()
 
     def switch_visible(self, is_visible: bool):
@@ -418,7 +426,6 @@ class ExperimentController():
                   current_knee_operation_mode.value,
                   current_time]]
             ), axis=0)
-            print(self.frame_records)
 
     def save_records(self):
         date = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -435,10 +442,49 @@ class ExperimentController():
                    comments=' ')
 
 
+class ColorDialogWithKnee(QObject):
+    updateSignal = pyqtSignal(QColor)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.color = QColor()
+        self.hue = 0
+        self.saturation = 255
+        self.value = 0
+        self.color.setHsv(0,255,0,255)
+        self.is_fixed = False
+
+    def hue_changed(self, hue):
+        self.hue = hue
+        self.color.setHsv(self.hue, self.saturation, self.value, 255)
+        self.updateSignal.emit(self.color)
+
+    def saturation_changed(self, saturation):
+        self.saturation = saturation
+        self.color.setHsv(self.hue, self.saturation, self.value, 255)
+        self.updateSignal.emit(self.color)
+
+    def value_changed(self, value):
+        self.value = value
+        self.color.setHsv(self.hue, self.saturation, self.value, 255)
+        self.updateSignal.emit(self.color)
+
+    def color_changed(self, color):
+        if not self.is_fixed:
+            self.color = color
+            self.hue = color.hue()
+            self.saturation = color.saturation()
+            self.value = color.value()
+            self.updateSignal.emit(self.color)
+
+
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
         self.experiment_controller = ExperimentController()
+        self.pen_color = ColorDialogWithKnee()
+        self.pen_color.updateSignal.connect(self.set_pen_color)
         self.setupUi()
         self.show()
 
@@ -446,10 +492,14 @@ class MainWindow(QMainWindow):
         self.is_enabled_knee_control = False
         self.is_mode_switched = False
         self.current_drawing_mode = OperationMode.DRAWING_POINTS
-        self.pen_color = QColorDialog()
+
         self.current_color_saturation = 127
         self.current_knee_operation_mode = OperationMode.NONE
+        self.current_knee_value = QPointF()
+        self.fixed_knee_value = QPointF(0, 0)
+        self.is_fixed_knee_value = False
         self.picked_color = QColor()
+
         # self.timerThread = QThread()
 
         # 実験記録関連の変数
@@ -480,7 +530,7 @@ class MainWindow(QMainWindow):
         self.canvas[0].set_enable_knee_control(self.is_enabled_knee_control)
         self.displayKneeOperationModeTextLabel.setText("Knee mode: \n {}".format(self.current_knee_operation_mode))
 
-        self.colorPickerToolButton.setStyleSheet("background-color: black")
+        # self.colorPickerToolButton.setStyleSheet("background-color: black")
 
     def setupUi(self):
         self.setObjectName("self")
@@ -488,64 +538,90 @@ class MainWindow(QMainWindow):
         self.centralwidget = QWidget(self)
         self.centralwidget.setObjectName("centralwidget")
 
-        self.verticalLayoutWidget = QWidget(self.centralwidget)
-        self.verticalLayoutWidget.setGeometry(QRect(600, 410, 290, 100))
-        self.verticalLayoutWidget.setObjectName("verticalLayoutWidget")
-        self.verticalLayout = QVBoxLayout(self.verticalLayoutWidget)
-        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout.setObjectName("verticalLayout")
+        self.displayKneeOperationModeTextLabel = QLabel(self.centralwidget)
+        self.displayKneeOperationModeTextLabel.setGeometry(QRect(610, 10, 270, 40))
+        self.displayKneeOperationModeTextLabel.setObjectName("displayKneeOperationModeTextLabel")
+
+        self.selectOperationModeButton = QPushButton(self.centralwidget)
+        self.selectOperationModeButton.setGeometry(QRect(600, 50, 140, 40))
+        self.selectOperationModeButton.setObjectName("selectOperationModeButton")
+        self.selectOperationModeButton.clicked.connect(self.switch_drawing_mode)
 
         self.canvasTableView = QTableView(self.centralwidget)
-        self.canvasTableView.setGeometry(QRect(600, 170, 290, 150))
+        self.canvasTableView.setGeometry(QRect(600, 130, 290, 150))
         self.canvasTableView.setObjectName("canvasTableView")
         self.canvasTableView.setSelectionMode(QAbstractItemView.SingleSelection)
         self.canvasTableView.horizontalHeader().setDefaultSectionSize(145)
         self.canvasTableView.clicked.connect(self.table_item_clicked)
 
         self.addCanvasButton = QPushButton(self.centralwidget)
-        self.addCanvasButton.setGeometry(QRect(600, 350, 120, 25))
+        self.addCanvasButton.setGeometry(QRect(600, 300, 120, 25))
         self.addCanvasButton.setObjectName("addCanvasButton")
         self.addCanvasButton.clicked.connect(self.add_canvas)
 
         self.deleteCanvasButton = QPushButton(self.centralwidget)
-        self.deleteCanvasButton.setGeometry(QRect(760, 350, 120, 25))
+        self.deleteCanvasButton.setGeometry(QRect(760, 300, 120, 25))
         self.deleteCanvasButton.setObjectName("deleteCanvasButton")
         self.deleteCanvasButton.clicked.connect(self.delete_canvas)
 
-        self.savePictureButton = QPushButton(self.centralwidget)
-        self.savePictureButton.setGeometry(QRect(750, 480, 140, 35))
-        self.savePictureButton.setObjectName("savePictureButton")
-        self.savePictureButton.clicked.connect(self.save_picture_and_experiment)
-
-        self.colorPickerToolButton = QToolButton(self.centralwidget)
-        self.colorPickerToolButton.setGeometry(QRect(810, 530, 71, 22))
-        self.colorPickerToolButton.setObjectName("colorPickerToolButton")
-        self.colorPickerToolButton.clicked.connect(self.pick_color)
-        self.colorPickerToolButton.setAutoFillBackground(True)
-
-        self.selectOperationModeButton = QPushButton(self.centralwidget)
-        self.selectOperationModeButton.setGeometry(QRect(600, 80, 140, 40))
-        self.selectOperationModeButton.setObjectName("selectOperationModeButton")
-        self.selectOperationModeButton.clicked.connect(self.switch_drawing_mode)
-
-        self.displayKneeOperationModeTextLabel = QLabel(self.centralwidget)
-        self.displayKneeOperationModeTextLabel.setGeometry(QRect(610, 10, 270, 40))
-        self.displayKneeOperationModeTextLabel.setObjectName("displayKneeOperationModeTextLabel")
-
         self.readFileNametextEdit = QTextEdit(self.centralwidget)
-        self.readFileNametextEdit.setGeometry(QRect(610, 440, 140, 30))
+        self.readFileNametextEdit.setGeometry(QRect(610, 350, 140, 30))
         self.readFileNametextEdit.setLineWidth(2)
         self.readFileNametextEdit.setObjectName("readFileNametextEdit")
 
-        self.saveFileNametextEdit = QTextEdit(self.centralwidget)
-        self.saveFileNametextEdit.setGeometry(QRect(610, 480, 140, 30))
-        self.saveFileNametextEdit.setLineWidth(2)
-        self.saveFileNametextEdit.setObjectName("saveFileNametextEdit")
-
         self.fileReadButton = QPushButton(self.centralwidget)
-        self.fileReadButton.setGeometry(QRect(750, 440, 140, 35))
+        self.fileReadButton.setGeometry(QRect(750, 350, 140, 35))
         self.fileReadButton.setObjectName("fileReadButton")
         self.fileReadButton.clicked.connect(self.file_read)
+
+        self.colorPickerToolButton = QToolButton(self.centralwidget)
+        self.colorPickerToolButton.setGeometry(QRect(600, 400, 280, 30))
+        self.colorPickerToolButton.setObjectName("colorPickerToolButton")
+        self.colorPickerToolButton.setAutoFillBackground(True)
+
+        self.verticalLayoutWidget = QWidget(self)
+        self.verticalLayoutWidget.setGeometry(QRect(600, 440, 280, 120))
+        self.verticalLayoutWidget.setObjectName("verticalLayoutWidget")
+        self.verticalLayout = QVBoxLayout(self.verticalLayoutWidget)
+        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout.setObjectName("verticalLayout")
+
+        self.hueLabel = QLabel(self.verticalLayoutWidget)
+        self.hueLabel.setObjectName("hueLabel")
+        self.verticalLayout.addWidget(self.hueLabel)
+
+        self.hueSlider = QSlider(self.verticalLayoutWidget)
+        self.hueSlider.setOrientation(Qt.Horizontal)
+        self.hueSlider.setObjectName("hueSlider")
+        self.hueSlider.setRange(0, 360)
+        self.hueSlider.valueChanged.connect(self.pen_color.hue_changed)
+        self.hueSlider.setTracking(True)
+        self.verticalLayout.addWidget(self.hueSlider)
+
+        self.saturationLabel = QLabel(self.verticalLayoutWidget)
+        self.saturationLabel.setObjectName("saturationLabel")
+        self.verticalLayout.addWidget(self.saturationLabel)
+
+        self.saturationSlider = QSlider(self.verticalLayoutWidget)
+        self.saturationSlider.setOrientation(Qt.Horizontal)
+        self.saturationSlider.setObjectName("saturationSlider")
+        self.saturationSlider.setRange(0, 255)
+        self.saturationSlider.setValue(255)
+        self.saturationSlider.valueChanged.connect(self.pen_color.saturation_changed)
+        self.saturationSlider.setTracking(True)
+        self.verticalLayout.addWidget(self.saturationSlider)
+
+        self.valueLabel = QLabel(self.verticalLayoutWidget)
+        self.valueLabel.setObjectName("valueLabel")
+        self.verticalLayout.addWidget(self.valueLabel)
+
+        self.valueSlider = QSlider(self.verticalLayoutWidget)
+        self.valueSlider.setOrientation(Qt.Horizontal)
+        self.valueSlider.setObjectName("valueSlider")
+        self.valueSlider.valueChanged.connect(self.pen_color.value_changed)
+        self.valueSlider.setRange(0, 255)
+        self.valueSlider.setTracking(True)
+        self.verticalLayout.addWidget(self.valueSlider)
 
         self.canvas = []
         self.canvas.append(Canvas(self.centralwidget))
@@ -577,12 +653,20 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.addCanvasButton.setText(_translate("MainWindow", "レイヤを追加"))
         self.deleteCanvasButton.setText(_translate("MainWindow", "レイヤを削除"))
-        self.savePictureButton.setText(_translate("MainWindow", "内容を保存(SS)"))
         self.fileReadButton.setText(_translate("MainWindow", "ファイルを読込む"))
         self.selectOperationModeButton.setText(_translate("MainWindow", "DRAWING_POINTS"))
         self.displayKneeOperationModeTextLabel.setText(_translate("MainWindow", "Knee mode:NONE"))
-        # self.IsAllCanvasInvisibleradioButton.setText(_translate("MainWindow", "全レイヤを透明/不透明にする"))
+        self.hueLabel.setText(_translate("MainWindow", "Hue: 0"))
+        self.saturationLabel.setText(_translate("MainWindow", "Saturation: 255"))
+        self.valueLabel.setText(_translate("MainWindow", "Brightness: 0"))
+        # self.currentCanvasNameTextLabel.setText(_translate("MainWindow", "Now at: canvas[0]"))
         QMetaObject.connectSlotsByName(self)
+
+    def display_statusbar(self):
+        self.statusbar.showMessage("現在のレイヤ: {}　膝モード: {}　マウスモード: {}"
+                                   .format(self.canvasNameTableModel.canvas_name[self.active_canvas],
+                                           self.current_knee_operation_mode.name,
+                                           self.current_drawing_mode.name))
 
     # -- レイヤ（canvas）に対する操作 --
     def add_canvas(self):
@@ -607,6 +691,7 @@ class MainWindow(QMainWindow):
         self.canvasNameTableModel.add_canvas(canvas_name)
         self.canvasTableView.setCurrentIndex(self.canvasNameTableModel.index(self.active_canvas, 0))
         self.canvasNameTableModel.layoutChanged.emit()
+        self.display_statusbar()
 
         # 使用するレイヤだけ使用可能にする
         for canvas in self.canvas:
@@ -674,8 +759,7 @@ class MainWindow(QMainWindow):
             self.canvasNameTableModel.set_canvas_visible(i, False)
         self.canvasNameTableModel.layoutChanged.emit()
 
-        self.statusbar.showMessage(
-            "レイヤ「" + str(self.canvasNameTableModel.canvas_name[self.active_canvas]) + "」へ切り替わりました")
+        self.display_statusbar()
 
     def switch_canvas_from_index(self, index: int):
         self.active_canvas = index
@@ -704,8 +788,7 @@ class MainWindow(QMainWindow):
             self.canvasNameTableModel.set_canvas_visible(i, False)
         self.canvasNameTableModel.layoutChanged.emit()
 
-        self.statusbar.showMessage(
-            "レイヤ「" + str(self.canvasNameTableModel.canvas_name[self.active_canvas]) + "」へ切り替わりました")
+        self.display_statusbar()
 
     # -- 絵のセーブとロード --
     def save_all_picture(self):
@@ -755,24 +838,27 @@ class MainWindow(QMainWindow):
         picture.save("test.png")
 
     def file_read(self):
-        file_name = "sampleImages/watch.png"
-        # if not self.readFileNametextEdit.toPlainText() == "":
-        #     file_name = "sampleImages/" + self.readFileNametextEdit.toPlainText() + ".png"
+        file_name = "sampleImages/1.png"
         image = QImage(file_name)
         self.canvas[self.active_canvas].load_picture(image)
-        self.statusbar.showMessage("picture")
 
     # -*- 色変更 -*-
-    def pick_color(self):
-        self.picked_color = self.pen_color.getColor(self.canvas[self.active_canvas].current_line_color)
-        # print(pickedColor.hsvSaturation())
-        # self.currentColorSaturation = pickedColor.hsvSaturation()
-        self.canvas[self.active_canvas].current_line_color = self.picked_color
+    def set_pen_color(self, color):
+        self.picked_color = color
+        self.canvas[self.active_canvas].set_line_color(color)
 
-        color_string = "background-color: rgb({},{},{})".format(self.picked_color.red(),
-                                                                self.picked_color.green(),
-                                                                self.picked_color.blue())
+        self.hueLabel.setText("Hue: {}".format(self.pen_color.hue))
+        self.hueSlider.setSliderPosition(self.pen_color.hue)
+        self.saturationLabel.setText("Saturation: {}".format(self.pen_color.saturation))
+        self.saturationSlider.setSliderPosition(self.pen_color.saturation)
+        self.valueLabel.setText("Brightness: {}".format(self.pen_color.value))
+        self.valueSlider.setSliderPosition(self.pen_color.value)
+
+        color_string = "background-color: rgb({},{},{})".format(self.pen_color.color.red(),
+                                                                self.pen_color.color.green(),
+                                                                self.pen_color.color.blue())
         self.colorPickerToolButton.setStyleSheet(color_string)
+        self.verticalLayoutWidget.update()
 
     # -*- 操作モードの切り替え -*-
     def switch_drawing_mode(self):
@@ -792,13 +878,13 @@ class MainWindow(QMainWindow):
             elif self.current_drawing_mode == OperationMode.MOVING_POINTS:
                 self.current_knee_operation_mode = OperationMode.MOVING_POINTS
             else:
-                self.current_drawing_mode = OperationMode.NONE
+                self.current_knee_operation_mode = OperationMode.DRAWING_POINTS
 
         self.canvas[self.active_canvas].operation_mode_changed(self.current_drawing_mode,
                                                                self.current_knee_operation_mode)
         self.selectOperationModeButton.setText("{}".format(self.current_drawing_mode.name))
         self.displayKneeOperationModeTextLabel.setText("Knee mode: \n {}".format(self.current_knee_operation_mode))
-        self.statusbar.showMessage("Mode:{}".format(self.current_drawing_mode.name))
+        self.display_statusbar()
 
     def switch_knee_operation_mode(self):
         if self.current_knee_operation_mode == OperationMode.NONE:
@@ -828,7 +914,7 @@ class MainWindow(QMainWindow):
                                                                self.current_knee_operation_mode)
         self.selectOperationModeButton.setText("{}".format(self.current_drawing_mode.name))
         self.displayKneeOperationModeTextLabel.setText("Knee mode: \n {}".format(self.current_knee_operation_mode))
-        self.statusbar.showMessage("Mode:{}".format(self.current_drawing_mode.name))
+        self.display_statusbar()
 
     # -*- イベント処理（継承元のオーバーライド）-*-
     def keyPressEvent(self, keyEvent):
@@ -838,6 +924,14 @@ class MainWindow(QMainWindow):
 
         if keyEvent.key() == Qt.Key_Backspace:
             self.canvas[self.active_canvas].delete_last_path()
+
+        if keyEvent.key() == Qt.Key_Shift:
+            self.is_fixed_knee_value = True
+
+
+    def keyReleaseEvent(self, keyEvent):
+        if keyEvent.key() == Qt.Key_Shift:
+            self.is_fixed_knee_value = False
 
     # -*- 実験を記録する関係 -*-
     def start_experiment(self):
@@ -872,20 +966,29 @@ class MainWindow(QMainWindow):
 
             elif self.current_knee_operation_mode == OperationMode.MOVING_POINTS:
                 x, y = self.kneePosition.get_mapped_positions(x, y, 0, 200)
+                if not self.is_fixed_knee_value:
+                    self.fixed_knee_value = QPointF(x, y)
                 self.canvas[self.active_canvas].set_knee_position(x, y)
 
             elif self.current_knee_operation_mode == OperationMode.SWITCH_LAYER:
                 x, _ = self.kneePosition.get_mapped_positions(x, y, 1, 359)
-                target_number = (int)(x / (360 / self.canvasNameTableModel.rowCount()))
+                _, y = self.kneePosition.get_mapped_positions(x, y, 0, 255)
+                if not self.is_fixed_knee_value:
+                    self.fixed_knee_value = QPointF(x, y)
+
+                target_number = (int)(self.fixed_knee_value.x() / (360 / self.canvasNameTableModel.rowCount()))
                 if not self.active_canvas == target_number:
                     self.switch_canvas_from_index(target_number)
+
 
             elif self.current_knee_operation_mode == OperationMode.COLOR_PICKER:
                 x, _ = self.kneePosition.get_mapped_positions(x, y, 1, 359)
                 _, y = self.kneePosition.get_mapped_positions(x, y, 0, 255)
-                next_color = QColor()
-                next_color.setHsv(x, 255, y, 255)
-                self.pen_color.setCurrentColor(next_color)
+                if not self.is_fixed_knee_value:
+                    self.fixed_knee_value = QPointF(x, y)
+                    next_color = self.pen_color.color
+                    next_color.setHsv(self.fixed_knee_value.x(), 255, self.fixed_knee_value.y(), 255)
+                    self.pen_color.color_changed(next_color)
 
             else:
                 self.current_knee_operation_mode = OperationMode.NONE
@@ -893,8 +996,9 @@ class MainWindow(QMainWindow):
             if self.is_mode_switched:
                 self.is_mode_switched = False
 
-            status_str = "x: " + str(x) + "y: " + str(y)
-            self.statusbar.showMessage(status_str)
+            if not self.experiment_controller.is_started_experiment:
+                status_str = "x: " + str(x) + "y: " + str(y)
+                self.statusbar.showMessage(status_str)
 
 
 if __name__ == '__main__':

@@ -82,45 +82,6 @@
      <string>PushButton</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="savePictureButton">
-    <property name="geometry">
-     <rect>
-      <x>750</x>
-      <y>480</y>
-      <width>140</width>
-      <height>35</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>キャンバスを保存</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="fileReadButton">
-    <property name="geometry">
-     <rect>
-      <x>750</x>
-      <y>440</y>
-      <width>140</width>
-      <height>35</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>ファイルを読込む</string>
-    </property>
-   </widget>
-   <widget class="QToolButton" name="colorPickerToolButton">
-    <property name="geometry">
-     <rect>
-      <x>810</x>
-      <y>530</y>
-      <width>71</width>
-      <height>22</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>カラーピッカー</string>
-    </property>
-   </widget>
    <widget class="QPushButton" name="selectModeButton">
     <property name="geometry">
      <rect>
@@ -151,32 +112,6 @@
     </property>
     <property name="textFormat">
      <enum>Qt::PlainText</enum>
-    </property>
-   </widget>
-   <widget class="QTextEdit" name="readFileNametextEdit">
-    <property name="geometry">
-     <rect>
-      <x>610</x>
-      <y>440</y>
-      <width>141</width>
-      <height>31</height>
-     </rect>
-    </property>
-    <property name="lineWidth">
-     <number>2</number>
-    </property>
-   </widget>
-   <widget class="QTextEdit" name="saveFileNametextEdit">
-    <property name="geometry">
-     <rect>
-      <x>610</x>
-      <y>480</y>
-      <width>141</width>
-      <height>31</height>
-     </rect>
-    </property>
-    <property name="lineWidth">
-     <number>2</number>
     </property>
    </widget>
    <widget class="QSlider" name="opacitySlider">
@@ -217,6 +152,60 @@
     <property name="text">
      <string>全レイヤを不透明にする</string>
     </property>
+   </widget>
+   <widget class="QWidget" name="verticalLayoutWidget">
+    <property name="geometry">
+     <rect>
+      <x>610</x>
+      <y>440</y>
+      <width>271</width>
+      <height>164</height>
+     </rect>
+    </property>
+    <layout class="QVBoxLayout" name="verticalLayout">
+     <item>
+      <widget class="QLabel" name="label_2">
+       <property name="text">
+        <string>TextLabel</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QSlider" name="horizontalSlider_2">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_3">
+       <property name="text">
+        <string>TextLabel</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QSlider" name="horizontalSlider_3">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_4">
+       <property name="text">
+        <string>TextLabel</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QSlider" name="horizontalSlider">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
